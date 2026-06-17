@@ -1,0 +1,11 @@
+# 統一文字檔換行為 LF（跨平台一致，並消除 Windows 上的 CRLF 警告）
+* text=auto eol=lf
+
+# 二進位檔不做換行轉換
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.wasm binary
+*.ttf binary
+*.otf binary
