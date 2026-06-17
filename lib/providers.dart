@@ -21,3 +21,20 @@ final repositoryProvider = Provider<HealthRepository>(
 final profileProvider = StreamProvider<UserProfile?>(
   (ref) => ref.watch(repositoryProvider).watchProfile(),
 );
+
+/// 目前檢視的日期（目前固定今天）。之後要支援切換日期時，改成 NotifierProvider。
+final selectedDateProvider = Provider<DateTime>((ref) => DateTime.now());
+
+/// 當日餐點清單（reactive）。
+final todayMealsProvider = StreamProvider<List<MealEntry>>(
+  (ref) => ref
+      .watch(repositoryProvider)
+      .watchMealsOn(ref.watch(selectedDateProvider)),
+);
+
+/// 當日營養加總（reactive）。
+final todayTotalsProvider = StreamProvider<DailyTotals>(
+  (ref) => ref
+      .watch(repositoryProvider)
+      .watchDailyTotals(ref.watch(selectedDateProvider)),
+);
