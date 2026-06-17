@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,7 +10,7 @@ import '../providers.dart';
 import 'add_meal_screen.dart';
 import 'onboarding_screen.dart';
 
-/// 每日追蹤：可前後切換日期，顯示該日「目標 vs 已吃 vs 剩餘」、
+/// 每日追蹤：可前後切換日期，顯示該日「目標 vs 已吃 vs 剩餘」（圓環）、
 /// 三大營養素進度與餐點清單。資料皆 reactive。
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -34,7 +35,6 @@ class DashboardScreen extends ConsumerWidget {
     final target = plan.calorieTarget;
     final consumed = totals.calories;
     final remaining = target - consumed;
-    final calPct = target <= 0 ? 0.0 : (consumed / target).clamp(0.0, 1.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -103,7 +103,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 8),
 
-          // === 熱量總覽 ===
+          // === 熱量總覽（圓環）===
           Card(
             color: theme.colorScheme.primaryContainer,
             child: Padding(
@@ -113,6 +113,8 @@ class DashboardScreen extends ConsumerWidget {
                   Text('熱量（${goalLabel(profile.goal)}）',
                       style: theme.textTheme.titleMedium),
                   const SizedBox(height: 12),
+                  _CalorieRing(consumed: consumed, target: target),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -121,11 +123,6 @@ class DashboardScreen extends ConsumerWidget {
                       _calStat('剩餘', remaining,
                           highlight: true, over: remaining < 0),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(value: calPct, minHeight: 10),
                   ),
                 ],
               ),
@@ -292,4 +289,71 @@ class DashboardScreen extends ConsumerWidget {
 
   String _hhmm(DateTime t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+}
+
+/// 熱量圓環：已吃比例填滿，中間顯示數字。超標時轉為紅色。
+class _CalorieRing extends StatelessWidget {
+  final double consumed;
+  final double target;
+  const _CalorieRing({required this.consumed, required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final over = target > 0 && consumed > target;
+    final filled = target <= 0 ? 0.0 : consumed.clamp(0, target).toDouble();
+    final rest = target <= 0 ? 0.0 : (target - consumed).clamp(0, target).toDouble();
+    final remaining = target - consumed;
+
+    return SizedBox(
+      height: 180,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              startDegreeOffset: -90,
+              sectionsSpace: 0,
+              centerSpaceRadius: 64,
+              sections: [
+                PieChartSectionData(
+                  value: filled <= 0 ? 0 : filled,
+                  color: over
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.primary,
+                  radius: 16,
+                  showTitle: false,
+                ),
+                if (rest > 0)
+                  PieChartSectionData(
+                    value: rest,
+                    color: theme.colorScheme.onPrimaryContainer
+                        .withValues(alpha: 0.12),
+                    radius: 16,
+                    showTitle: false,
+                  ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('${consumed.round()}',
+                  style: theme.textTheme.headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              Text('/ ${target.round()} 大卡', style: theme.textTheme.bodySmall),
+              const SizedBox(height: 2),
+              Text(
+                over ? '超出 ${(-remaining).round()}' : '剩 ${remaining.round()}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: over ? theme.colorScheme.error : null,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
