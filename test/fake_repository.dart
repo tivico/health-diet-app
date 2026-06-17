@@ -5,6 +5,7 @@ import 'package:health/data/health_repository.dart';
 import 'package:health/domain/nutrition.dart';
 
 /// 記憶體假實作：讓 Widget 測試不依賴真實 SQLite，但仍能驗證讀寫流程。
+/// 餐點與體重都依日期過濾，能測「切換日期看歷史」。
 class FakeHealthRepository implements HealthRepository {
   UserProfile? _profile;
   final List<MealEntry> _meals = [];
@@ -12,9 +13,8 @@ class FakeHealthRepository implements HealthRepository {
   int _nextId = 1;
 
   final _profileCtrl = StreamController<UserProfile?>.broadcast();
-  final _mealsCtrl = StreamController<List<MealEntry>>.broadcast();
-  final _totalsCtrl = StreamController<DailyTotals>.broadcast();
-  final _weightsCtrl = StreamController<void>.broadcast();
+  final _mealsChanged = StreamController<void>.broadcast();
+  final _weightsChanged = StreamController<void>.broadcast();
 
   FakeHealthRepository([this._profile]);
 
@@ -34,17 +34,17 @@ class FakeHealthRepository implements HealthRepository {
     _profileCtrl.add(p);
   }
 
-  // --- 餐點 ---
+  // --- 餐點（依日期過濾）---
   @override
   Stream<List<MealEntry>> watchMealsOn(DateTime day) async* {
-    yield List.unmodifiable(_meals);
-    yield* _mealsCtrl.stream;
+    yield _mealsOn(day);
+    yield* _mealsChanged.stream.map((_) => _mealsOn(day));
   }
 
   @override
   Stream<DailyTotals> watchDailyTotals(DateTime day) async* {
-    yield _totals();
-    yield* _totalsCtrl.stream;
+    yield _totalsOn(day);
+    yield* _mealsChanged.stream.map((_) => _totalsOn(day));
   }
 
   @override
@@ -66,21 +66,21 @@ class FakeHealthRepository implements HealthRepository {
       fatG: fatG,
       carbsG: carbsG,
     ));
-    _emitMeals();
+    _mealsChanged.add(null);
     return id;
   }
 
   @override
   Future<void> deleteMeal(int id) async {
     _meals.removeWhere((m) => m.id == id);
-    _emitMeals();
+    _mealsChanged.add(null);
   }
 
-  // --- 體重 ---
+  // --- 體重（依日期過濾）---
   @override
   Stream<List<WeightEntry>> watchWeightsBetween(DateTime from, DateTime to) async* {
-    yield _inRange(from, to);
-    yield* _weightsCtrl.stream.map((_) => _inRange(from, to));
+    yield _weightsInRange(from, to);
+    yield* _weightsChanged.stream.map((_) => _weightsInRange(from, to));
   }
 
   @override
@@ -92,44 +92,44 @@ class FakeHealthRepository implements HealthRepository {
     final d = DateTime(day.year, day.month, day.day);
     _weights.removeWhere((w) => w.day == d);
     _weights.add(WeightEntry(day: d, weightKg: weightKg, bodyFatPct: bodyFatPct));
-    _weightsCtrl.add(null);
+    _weightsChanged.add(null);
   }
 
   @override
   Future<void> deleteWeight(DateTime day) async {
     final d = DateTime(day.year, day.month, day.day);
     _weights.removeWhere((w) => w.day == d);
-    _weightsCtrl.add(null);
+    _weightsChanged.add(null);
   }
 
   // --- helpers ---
-  void _emitMeals() {
-    _mealsCtrl.add(List.unmodifiable(_meals));
-    _totalsCtrl.add(_totals());
+  List<MealEntry> _mealsOn(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+    final next = d.add(const Duration(days: 1));
+    return _meals
+        .where((m) => !m.eatenAt.isBefore(d) && m.eatenAt.isBefore(next))
+        .toList()
+      ..sort((a, b) => b.eatenAt.compareTo(a.eatenAt));
   }
 
-  DailyTotals _totals() {
+  DailyTotals _totalsOn(DateTime day) {
     var c = 0.0, p = 0.0, f = 0.0, cb = 0.0;
-    for (final m in _meals) {
+    var n = 0;
+    for (final m in _mealsOn(day)) {
       c += m.calories;
       p += m.proteinG;
       f += m.fatG;
       cb += m.carbsG;
+      n++;
     }
     return DailyTotals(
-      calories: c,
-      proteinG: p,
-      fatG: f,
-      carbsG: cb,
-      mealCount: _meals.length,
-    );
+        calories: c, proteinG: p, fatG: f, carbsG: cb, mealCount: n);
   }
 
-  List<WeightEntry> _inRange(DateTime from, DateTime to) {
-    final list = _weights
+  List<WeightEntry> _weightsInRange(DateTime from, DateTime to) {
+    return _weights
         .where((w) => !w.day.isBefore(from) && !w.day.isAfter(to))
         .toList()
       ..sort((a, b) => a.day.compareTo(b.day));
-    return list;
   }
 }

@@ -16,24 +16,41 @@ final repositoryProvider = Provider<HealthRepository>(
   (ref) => DriftHealthRepository(ref.watch(databaseProvider)),
 );
 
-/// 目前使用者資料（reactive）：onboarding 存檔後，所有讀此 provider 的畫面自動更新。
-/// 值為 null 代表尚未建立資料（要顯示引導設定）。
+/// 目前使用者資料（reactive）；null 代表尚未建立（要顯示引導設定）。
 final profileProvider = StreamProvider<UserProfile?>(
   (ref) => ref.watch(repositoryProvider).watchProfile(),
 );
 
-/// 目前檢視的日期（目前固定今天）。之後要支援切換日期時，改成 NotifierProvider。
-final selectedDateProvider = Provider<DateTime>((ref) => DateTime.now());
+/// 目前檢視的日期：預設今天，可前後切換但不超過今天。
+class SelectedDateNotifier extends Notifier<DateTime> {
+  @override
+  DateTime build() => _dateOnly(DateTime.now());
 
-/// 當日餐點清單（reactive）。
-final todayMealsProvider = StreamProvider<List<MealEntry>>(
+  void previousDay() => state = state.subtract(const Duration(days: 1));
+
+  void nextDay() {
+    final next = state.add(const Duration(days: 1));
+    final today = _dateOnly(DateTime.now());
+    state = next.isAfter(today) ? today : next; // 不能看未來
+  }
+
+  void goToToday() => state = _dateOnly(DateTime.now());
+
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+}
+
+final selectedDateProvider =
+    NotifierProvider<SelectedDateNotifier, DateTime>(SelectedDateNotifier.new);
+
+/// 所選日期的餐點清單（reactive）。
+final dayMealsProvider = StreamProvider<List<MealEntry>>(
   (ref) => ref
       .watch(repositoryProvider)
       .watchMealsOn(ref.watch(selectedDateProvider)),
 );
 
-/// 當日營養加總（reactive）。
-final todayTotalsProvider = StreamProvider<DailyTotals>(
+/// 所選日期的營養加總（reactive）。
+final dayTotalsProvider = StreamProvider<DailyTotals>(
   (ref) => ref
       .watch(repositoryProvider)
       .watchDailyTotals(ref.watch(selectedDateProvider)),

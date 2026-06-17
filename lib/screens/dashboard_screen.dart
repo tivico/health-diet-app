@@ -9,8 +9,8 @@ import '../providers.dart';
 import 'add_meal_screen.dart';
 import 'onboarding_screen.dart';
 
-/// 今日追蹤：從本地資料庫讀取使用者資料與當日餐點（皆 reactive），
-/// 顯示「目標 vs 已吃 vs 剩餘」、三大營養素進度、今日餐點清單。
+/// 每日追蹤：可前後切換日期，顯示該日「目標 vs 已吃 vs 剩餘」、
+/// 三大營養素進度與餐點清單。資料皆 reactive。
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -22,9 +22,14 @@ class DashboardScreen extends ConsumerWidget {
     }
 
     final plan = nutritionPlan(profile);
-    final totals = ref.watch(todayTotalsProvider).value ?? const DailyTotals();
-    final meals = ref.watch(todayMealsProvider).value ?? const <MealEntry>[];
+    final totals = ref.watch(dayTotalsProvider).value ?? const DailyTotals();
+    final meals = ref.watch(dayMealsProvider).value ?? const <MealEntry>[];
+    final selectedDate = ref.watch(selectedDateProvider);
     final theme = Theme.of(context);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isToday = selectedDate == today;
 
     final target = plan.calorieTarget;
     final consumed = totals.calories;
@@ -55,8 +60,49 @@ class DashboardScreen extends ConsumerWidget {
         label: const Text('新增餐點'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88), // 底部留白給 FAB
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
         children: [
+          // === 日期切換 ===
+          Row(
+            children: [
+              IconButton(
+                tooltip: '前一天',
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () =>
+                    ref.read(selectedDateProvider.notifier).previousDay(),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    Text('${selectedDate.month} 月 ${selectedDate.day} 日',
+                        style: theme.textTheme.titleMedium),
+                    Text(
+                      isToday ? '今天' : '過去紀錄',
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: theme.hintColor),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '後一天',
+                icon: const Icon(Icons.chevron_right),
+                onPressed: isToday
+                    ? null
+                    : () => ref.read(selectedDateProvider.notifier).nextDay(),
+              ),
+            ],
+          ),
+          if (!isToday)
+            Center(
+              child: TextButton(
+                onPressed: () =>
+                    ref.read(selectedDateProvider.notifier).goToToday(),
+                child: const Text('回到今天'),
+              ),
+            ),
+          const SizedBox(height: 8),
+
           // === 熱量總覽 ===
           Card(
             color: theme.colorScheme.primaryContainer,
@@ -64,7 +110,7 @@ class DashboardScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  Text('今日熱量（${goalLabel(profile.goal)}）',
+                  Text('熱量（${goalLabel(profile.goal)}）',
                       style: theme.textTheme.titleMedium),
                   const SizedBox(height: 12),
                   Row(
@@ -97,8 +143,8 @@ class DashboardScreen extends ConsumerWidget {
               Colors.lightBlue),
           const SizedBox(height: 16),
 
-          // === 今日餐點 ===
-          Text('今日餐點（${meals.length}）', style: theme.textTheme.titleMedium),
+          // === 餐點 ===
+          Text('餐點（${meals.length}）', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           if (meals.isEmpty)
             Card(
@@ -106,9 +152,9 @@ class DashboardScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 child: Center(
                   child: Text(
-                    '還沒有紀錄，按右下角「新增餐點」開始記錄今天吃了什麼。',
-                    style: TextStyle(color: theme.hintColor),
+                    '這天還沒有餐點紀錄。\n切到「今天」並按右下角「新增餐點」開始記錄。',
                     textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.hintColor),
                   ),
                 ),
               ),
