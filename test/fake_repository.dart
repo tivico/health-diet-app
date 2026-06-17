@@ -8,14 +8,17 @@ import 'package:health/domain/nutrition.dart';
 class FakeHealthRepository implements HealthRepository {
   UserProfile? _profile;
   final List<MealEntry> _meals = [];
+  final List<WeightEntry> _weights = [];
   int _nextId = 1;
 
   final _profileCtrl = StreamController<UserProfile?>.broadcast();
   final _mealsCtrl = StreamController<List<MealEntry>>.broadcast();
   final _totalsCtrl = StreamController<DailyTotals>.broadcast();
+  final _weightsCtrl = StreamController<void>.broadcast();
 
   FakeHealthRepository([this._profile]);
 
+  // --- 使用者資料 ---
   @override
   Stream<UserProfile?> watchProfile() async* {
     yield _profile;
@@ -31,6 +34,7 @@ class FakeHealthRepository implements HealthRepository {
     _profileCtrl.add(p);
   }
 
+  // --- 餐點 ---
   @override
   Stream<List<MealEntry>> watchMealsOn(DateTime day) async* {
     yield List.unmodifiable(_meals);
@@ -62,31 +66,44 @@ class FakeHealthRepository implements HealthRepository {
       fatG: fatG,
       carbsG: carbsG,
     ));
-    _emit();
+    _emitMeals();
     return id;
   }
 
   @override
   Future<void> deleteMeal(int id) async {
     _meals.removeWhere((m) => m.id == id);
-    _emit();
+    _emitMeals();
   }
 
+  // --- 體重 ---
   @override
-  Stream<List<WeightEntry>> watchWeightsBetween(DateTime from, DateTime to) =>
-      Stream.value(const <WeightEntry>[]);
+  Stream<List<WeightEntry>> watchWeightsBetween(DateTime from, DateTime to) async* {
+    yield _inRange(from, to);
+    yield* _weightsCtrl.stream.map((_) => _inRange(from, to));
+  }
 
   @override
   Future<void> upsertWeight({
     required DateTime day,
     required double weightKg,
     double? bodyFatPct,
-  }) async {}
+  }) async {
+    final d = DateTime(day.year, day.month, day.day);
+    _weights.removeWhere((w) => w.day == d);
+    _weights.add(WeightEntry(day: d, weightKg: weightKg, bodyFatPct: bodyFatPct));
+    _weightsCtrl.add(null);
+  }
 
   @override
-  Future<void> deleteWeight(DateTime day) async {}
+  Future<void> deleteWeight(DateTime day) async {
+    final d = DateTime(day.year, day.month, day.day);
+    _weights.removeWhere((w) => w.day == d);
+    _weightsCtrl.add(null);
+  }
 
-  void _emit() {
+  // --- helpers ---
+  void _emitMeals() {
     _mealsCtrl.add(List.unmodifiable(_meals));
     _totalsCtrl.add(_totals());
   }
@@ -106,5 +123,13 @@ class FakeHealthRepository implements HealthRepository {
       carbsG: cb,
       mealCount: _meals.length,
     );
+  }
+
+  List<WeightEntry> _inRange(DateTime from, DateTime to) {
+    final list = _weights
+        .where((w) => !w.day.isBefore(from) && !w.day.isAfter(to))
+        .toList()
+      ..sort((a, b) => a.day.compareTo(b.day));
+    return list;
   }
 }

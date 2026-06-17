@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers.dart';
-import 'screens/dashboard_screen.dart';
+import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
 
 void main() {
@@ -26,7 +26,7 @@ class HealthApp extends StatelessWidget {
   }
 }
 
-/// 啟動時的分流：依「是否已有使用者資料」決定要顯示引導設定還是儀表板。
+/// 啟動時的分流：依「是否已有使用者資料」決定顯示引導設定還是主畫面。
 /// 因為讀的是 reactive 的 profileProvider，存檔後會自動切換。
 class HomeGate extends ConsumerWidget {
   const HomeGate({super.key});
@@ -46,7 +46,7 @@ class HomeGate extends ConsumerWidget {
         ),
       ),
       data: (profile) =>
-          profile == null ? const OnboardingScreen() : const DashboardScreen(),
+          profile == null ? const OnboardingScreen() : const HomeShell(),
     );
   }
 }

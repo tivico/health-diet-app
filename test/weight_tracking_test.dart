@@ -8,7 +8,7 @@ import 'package:health/providers.dart';
 import 'fake_repository.dart';
 
 void main() {
-  testWidgets('新增餐點 → 出現在今日清單，計數更新', (tester) async {
+  testWidgets('切到體重分頁 → 記錄體重 → 出現在清單', (tester) async {
     tester.view.physicalSize = const Size(1080, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -33,22 +33,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 在儀表板，今日餐點為空
-    expect(find.text('今日餐點（0）'), findsOneWidget);
-
-    // 點「新增餐點」FAB 進入新增餐點頁（底部導覽後可能有多個 FAB，用文字鎖定）
-    await tester.tap(find.widgetWithText(FloatingActionButton, '新增餐點'));
+    // 從今日分頁切到體重分頁
+    await tester.tap(find.text('體重'));
     await tester.pumpAndSettle();
+    expect(find.text('體重追蹤'), findsOneWidget);
+    expect(find.textContaining('還沒有體重紀錄'), findsOneWidget);
 
-    // 填寫名稱與熱量後儲存
-    await tester.enterText(
-        find.widgetWithText(TextFormField, '餐點名稱'), '雞腿便當');
-    await tester.enterText(find.widgetWithText(TextFormField, '熱量'), '800');
+    // 記錄一筆體重
+    await tester.tap(find.widgetWithText(FloatingActionButton, '記錄體重'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, '體重'), '58');
     await tester.tap(find.widgetWithText(FilledButton, '儲存'));
     await tester.pumpAndSettle();
 
-    // 回到儀表板：餐點出現、計數變成 1
-    expect(find.text('雞腿便當'), findsOneWidget);
-    expect(find.text('今日餐點（1）'), findsOneWidget);
+    // 回到體重分頁，紀錄出現
+    expect(find.text('58.0 kg'), findsOneWidget);
   });
 }

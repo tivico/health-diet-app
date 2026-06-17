@@ -38,3 +38,11 @@ final todayTotalsProvider = StreamProvider<DailyTotals>(
       .watch(repositoryProvider)
       .watchDailyTotals(ref.watch(selectedDateProvider)),
 );
+
+/// 近 90 天的體重紀錄（reactive），給趨勢圖與清單用。
+final weightHistoryProvider = StreamProvider<List<WeightEntry>>((ref) {
+  final now = DateTime.now();
+  final to = DateTime(now.year, now.month, now.day);
+  final from = to.subtract(const Duration(days: 90));
+  return ref.watch(repositoryProvider).watchWeightsBetween(from, to);
+});

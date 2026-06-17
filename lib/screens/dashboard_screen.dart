@@ -47,6 +47,7 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab-meal', // 與體重分頁的 FAB 區分，避免 Hero tag 衝突
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const AddMealScreen()),
         ),
