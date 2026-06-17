@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/database.dart';
 import '../providers.dart';
 
-/// 手動新增一筆餐點：名稱 + 熱量（必填），三大營養素（選填）。
+/// 新增或編輯一筆餐點：名稱 + 熱量（必填），三大營養素（選填）。
+/// 帶入 [initial] 時為編輯模式（更新該筆），否則為新增模式。
 class AddMealScreen extends ConsumerStatefulWidget {
-  const AddMealScreen({super.key});
+  final MealEntry? initial;
+  const AddMealScreen({super.key, this.initial});
 
   @override
   ConsumerState<AddMealScreen> createState() => _AddMealScreenState();
@@ -13,12 +16,25 @@ class AddMealScreen extends ConsumerStatefulWidget {
 
 class _AddMealScreenState extends ConsumerState<AddMealScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _calories = TextEditingController();
-  final _protein = TextEditingController();
-  final _fat = TextEditingController();
-  final _carbs = TextEditingController();
+  late final TextEditingController _name;
+  late final TextEditingController _calories;
+  late final TextEditingController _protein;
+  late final TextEditingController _fat;
+  late final TextEditingController _carbs;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.initial;
+    _name = TextEditingController(text: m?.name ?? '');
+    _calories = TextEditingController(text: _numText(m?.calories));
+    _protein = TextEditingController(text: _numText(m?.proteinG));
+    _fat = TextEditingController(text: _numText(m?.fatG));
+    _carbs = TextEditingController(text: _numText(m?.carbsG));
+  }
+
+  String _numText(double? v) => (v == null || v == 0) ? '' : v.toInt().toString();
 
   @override
   void dispose() {
@@ -36,14 +52,28 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await ref.read(repositoryProvider).addMeal(
-            eatenAt: DateTime.now(),
-            name: _name.text.trim(),
-            calories: _num(_calories),
-            proteinG: _num(_protein),
-            fatG: _num(_fat),
-            carbsG: _num(_carbs),
-          );
+      final repo = ref.read(repositoryProvider);
+      final initial = widget.initial;
+      if (initial == null) {
+        await repo.addMeal(
+          eatenAt: DateTime.now(),
+          name: _name.text.trim(),
+          calories: _num(_calories),
+          proteinG: _num(_protein),
+          fatG: _num(_fat),
+          carbsG: _num(_carbs),
+        );
+      } else {
+        await repo.updateMeal(
+          id: initial.id,
+          eatenAt: initial.eatenAt, // 編輯不改時間
+          name: _name.text.trim(),
+          calories: _num(_calories),
+          proteinG: _num(_protein),
+          fatG: _num(_fat),
+          carbsG: _num(_carbs),
+        );
+      }
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
@@ -56,8 +86,9 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.initial != null;
     return Scaffold(
-      appBar: AppBar(title: const Text('新增餐點')),
+      appBar: AppBar(title: Text(isEditing ? '編輯餐點' : '新增餐點')),
       body: Form(
         key: _formKey,
         child: ListView(

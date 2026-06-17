@@ -71,6 +71,31 @@ class FakeHealthRepository implements HealthRepository {
   }
 
   @override
+  Future<void> updateMeal({
+    required int id,
+    required DateTime eatenAt,
+    required String name,
+    required double calories,
+    required double proteinG,
+    required double fatG,
+    required double carbsG,
+  }) async {
+    final i = _meals.indexWhere((m) => m.id == id);
+    if (i != -1) {
+      _meals[i] = MealEntry(
+        id: id,
+        eatenAt: eatenAt,
+        name: name,
+        calories: calories,
+        proteinG: proteinG,
+        fatG: fatG,
+        carbsG: carbsG,
+      );
+      _mealsChanged.add(null);
+    }
+  }
+
+  @override
   Future<void> deleteMeal(int id) async {
     _meals.removeWhere((m) => m.id == id);
     _mealsChanged.add(null);

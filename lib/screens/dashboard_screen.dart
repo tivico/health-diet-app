@@ -165,6 +165,10 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   for (final m in meals)
                     ListTile(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => AddMealScreen(initial: m)),
+                      ),
                       title: Text(m.name),
                       subtitle: Text(
                         '${_hhmm(m.eatenAt)} ・ 蛋白 ${m.proteinG.toInt()} / 脂 ${m.fatG.toInt()} / 碳 ${m.carbsG.toInt()} g',

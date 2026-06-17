@@ -39,6 +39,15 @@ abstract class HealthRepository {
     required double fatG,
     required double carbsG,
   });
+  Future<void> updateMeal({
+    required int id,
+    required DateTime eatenAt,
+    required String name,
+    required double calories,
+    required double proteinG,
+    required double fatG,
+    required double carbsG,
+  });
   Future<void> deleteMeal(int id);
 
   // 體重（一天一筆）
@@ -150,6 +159,28 @@ class DriftHealthRepository implements HealthRepository {
           fatG: fatG,
           carbsG: carbsG,
         ));
+  }
+
+  @override
+  Future<void> updateMeal({
+    required int id,
+    required DateTime eatenAt,
+    required String name,
+    required double calories,
+    required double proteinG,
+    required double fatG,
+    required double carbsG,
+  }) {
+    return (_db.update(_db.mealEntries)..where((t) => t.id.equals(id))).write(
+      MealEntriesCompanion(
+        eatenAt: Value(eatenAt),
+        name: Value(name),
+        calories: Value(calories),
+        proteinG: Value(proteinG),
+        fatG: Value(fatG),
+        carbsG: Value(carbsG),
+      ),
+    );
   }
 
   @override
