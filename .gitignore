@@ -1,0 +1,57 @@
+# Miscellaneous
+*.class
+*.log
+*.swp
+.DS_Store
+Thumbs.db
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter / Dart / Pub
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# Android
+**/android/**/gradle-wrapper.jar
+.gradle/
+**/android/captures/
+**/android/.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+local.properties
+
+# iOS / macOS
+**/ios/Flutter/.last_build_id
+**/Pods/
+**/.symlinks/
+
+# 環境變數 / 機密（之後若有）
+.env
+*.env
+
+# Claude Code 本機設定（工具用，非專案程式碼）
+.claude/
+
+# 注意：以下「不」忽略，要進版控 —
+#   pubspec.lock（App 應鎖定相依版本）
+#   lib/data/database.g.dart（drift 產生碼，方便 clone 即可跑）
+#   web/sqlite3.wasm、web/drift_worker.js（Web 執行所需）
