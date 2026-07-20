@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/nutrition.dart';
 import '../labels.dart';
 import '../providers.dart';
+import 'advice_screen.dart';
 
 /// 引導設定 / 編輯資料：輸入基本資料 → 存進本地資料庫。
 ///
-/// - 首次（[initial] 為 null）：存檔後由 HomeGate 自動切換到儀表板。
+/// - 首次（[initial] 為 null）：存檔後跳出客製化健康建議，再由 HomeGate 顯示主畫面。
 /// - 編輯（帶入 [initial]）：被 push 上來，存檔後返回上一頁。
 class OnboardingScreen extends ConsumerStatefulWidget {
   final UserProfile? initial;
@@ -83,19 +84,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       bodyFatPct: bodyFatText.isEmpty ? null : double.parse(bodyFatText),
     );
 
+    // 先抓好 navigator / messenger，避免 await 後再用 context。
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     try {
       await ref.read(repositoryProvider).saveProfile(profile);
-      if (!mounted) return;
-      // 編輯模式（被 push 上來）→ 返回；首次設定 → 由 HomeGate 自動切到儀表板。
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
+      if (widget.initial == null) {
+        // 首次建立 → 顯示客製化健康建議（背後 HomeGate 已切到主畫面）。
+        navigator.push(
+          MaterialPageRoute(builder: (_) => AdviceScreen(profile: profile)),
+        );
+      } else if (navigator.canPop()) {
+        navigator.pop(); // 編輯模式 → 返回
       }
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('儲存失敗：$e')));
+      messenger.showSnackBar(SnackBar(content: Text('儲存失敗：$e')));
+      if (mounted) setState(() => _saving = false);
     }
   }
 

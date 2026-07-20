@@ -7,6 +7,7 @@ import '../data/health_repository.dart';
 import '../domain/nutrition.dart';
 import '../labels.dart';
 import '../providers.dart';
+import 'advice_screen.dart';
 import 'add_meal_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -40,6 +41,13 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('你的每日目標'),
         actions: [
+          IconButton(
+            tooltip: '健康建議',
+            icon: const Icon(Icons.tips_and_updates_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => AdviceScreen(profile: profile)),
+            ),
+          ),
           IconButton(
             tooltip: '編輯資料',
             icon: const Icon(Icons.edit_outlined),

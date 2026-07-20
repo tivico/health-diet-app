@@ -8,9 +8,8 @@ import 'package:health/providers.dart';
 import 'fake_repository.dart';
 
 void main() {
-  testWidgets('沒有資料時顯示引導設定 → 存檔 → 自動進入儀表板', (tester) async {
-    // 用較高的測試畫面，確保整張表單（含底部按鈕）都在可視範圍內。
-    tester.view.physicalSize = const Size(1080, 2600);
+  testWidgets('沒有資料 → 存檔 → 顯示健康建議 → 開始使用進入儀表板', (tester) async {
+    tester.view.physicalSize = const Size(1080, 3200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -32,7 +31,13 @@ void main() {
     await tester.tap(find.text('計算我的每日目標'));
     await tester.pumpAndSettle();
 
-    // 存檔後 profileProvider 推出新值 → HomeGate 切換到儀表板
+    // 首次 → 先出現客製化健康建議
+    expect(find.text('你的健康建議'), findsOneWidget);
+    expect(find.text('怎麼吃'), findsOneWidget);
+
+    // 按「開始使用」→ 進入儀表板
+    await tester.tap(find.widgetWithText(FilledButton, '開始使用'));
+    await tester.pumpAndSettle();
     expect(find.text('你的每日目標'), findsOneWidget);
     expect(find.text('三大營養素（已吃 / 目標）'), findsOneWidget);
   });
