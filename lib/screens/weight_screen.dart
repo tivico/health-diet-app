@@ -57,8 +57,24 @@ class WeightScreen extends ConsumerWidget {
                           trailing: IconButton(
                             tooltip: '刪除',
                             icon: const Icon(Icons.delete_outline),
-                            onPressed: () =>
-                                ref.read(repositoryProvider).deleteWeight(e.day),
+                            onPressed: () {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final repo = ref.read(repositoryProvider);
+                              repo.deleteWeight(e.day);
+                              messenger.hideCurrentSnackBar();
+                              messenger.showSnackBar(SnackBar(
+                                content: Text(
+                                    '已刪除 ${e.weightKg.toStringAsFixed(1)} kg 的紀錄'),
+                                action: SnackBarAction(
+                                  label: '復原',
+                                  onPressed: () => repo.upsertWeight(
+                                    day: e.day,
+                                    weightKg: e.weightKg,
+                                    bodyFatPct: e.bodyFatPct,
+                                  ),
+                                ),
+                              ));
+                            },
                           ),
                         ),
                     ],

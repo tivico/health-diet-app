@@ -193,8 +193,26 @@ class DashboardScreen extends ConsumerWidget {
                           IconButton(
                             tooltip: '刪除',
                             icon: const Icon(Icons.delete_outline),
-                            onPressed: () =>
-                                ref.read(repositoryProvider).deleteMeal(m.id),
+                            onPressed: () {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final repo = ref.read(repositoryProvider);
+                              repo.deleteMeal(m.id);
+                              messenger.hideCurrentSnackBar();
+                              messenger.showSnackBar(SnackBar(
+                                content: Text('已刪除「${m.name}」'),
+                                action: SnackBarAction(
+                                  label: '復原',
+                                  onPressed: () => repo.addMeal(
+                                    eatenAt: m.eatenAt,
+                                    name: m.name,
+                                    calories: m.calories,
+                                    proteinG: m.proteinG,
+                                    fatG: m.fatG,
+                                    carbsG: m.carbsG,
+                                  ),
+                                ),
+                              ));
+                            },
                           ),
                         ],
                       ),
