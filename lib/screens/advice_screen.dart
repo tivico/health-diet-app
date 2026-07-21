@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/nutrition.dart';
 import '../domain/recommendations.dart';
 import '../labels.dart';
+import 'calculation_screen.dart';
 
 /// 客製化健康建議頁：依個人資料給出「怎麼吃 / 動 / 喝水 / 睡」等行動建議。
 /// 首次建立資料後會自動顯示；也可從儀表板隨時再看。
@@ -58,6 +59,15 @@ class AdviceScreen extends StatelessWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 4),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => CalculationScreen(profile: profile)),
+            ),
+            icon: const Icon(Icons.calculate_outlined),
+            label: const Text('查看背後的計算公式'),
+          ),
           const SizedBox(height: 8),
           Text(
             '＊以上為一般性建議，非醫療處方；有特殊健康狀況請諮詢專業。',

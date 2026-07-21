@@ -6,6 +6,9 @@ library;
 
 import 'nutrition.dart';
 
+/// 每日建議飲水量的估算係數（c.c. / 每公斤體重）。此為粗略參考值。
+const int kWaterMlPerKg = 33;
+
 class AdviceSection {
   final String title;
   final String headline;
@@ -17,6 +20,9 @@ class AdviceSection {
     required this.points,
   });
 }
+
+/// 依體重估算每日建議飲水量（約 33 c.c./公斤，取整到百位）。
+int waterMlForWeight(double kg) => (kg * kWaterMlPerKg / 100).round() * 100;
 
 /// 依使用者資料與營養計畫產生建議區塊。
 List<AdviceSection> buildAdvice(UserProfile p, NutritionPlan plan) {
@@ -39,7 +45,7 @@ List<AdviceSection> buildAdvice(UserProfile p, NutritionPlan plan) {
     ),
     AdviceSection(
       title: '喝水',
-      headline: '每天約 ${_waterMl(p.weightKg)} c.c.',
+      headline: '每天約 ${waterMlForWeight(p.weightKg)} c.c.',
       points: const [
         '以白開水為主，取代含糖飲料',
         '運動或天氣熱時再增加',
@@ -57,9 +63,6 @@ List<AdviceSection> buildAdvice(UserProfile p, NutritionPlan plan) {
     ),
   ];
 }
-
-/// 依體重估算每日建議飲水量（約 33 c.c./公斤，取整到百位）。此為粗略參考值。
-int _waterMl(double kg) => (kg * 33 / 100).round() * 100;
 
 String _focusHeadline(String bmiCategory) => switch (bmiCategory) {
       '過輕' => '健康增重，別過度限制',

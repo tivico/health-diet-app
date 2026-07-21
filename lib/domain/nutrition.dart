@@ -45,6 +45,11 @@ const int kKcalPerGProtein = 4;
 const int kKcalPerGFat = 9;
 const int kKcalPerGCarb = 4;
 
+/// 每日熱量目標的預設調整幅度：減脂扣 15%、增肌加 10%。
+/// （與 nutritionPlan / dailyCalorieTarget 的預設參數一致，供畫面顯示公式用。）
+const double kDefaultDeficitPct = 0.15;
+const double kDefaultSurplusPct = 0.10;
+
 /// 使用者基本資料。
 class UserProfile {
   final Sex sex;
