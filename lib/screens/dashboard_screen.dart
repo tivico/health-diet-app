@@ -9,6 +9,7 @@ import '../labels.dart';
 import '../providers.dart';
 import 'advice_screen.dart';
 import 'add_meal_screen.dart';
+import 'backup_screen.dart';
 import 'onboarding_screen.dart';
 
 /// 每日追蹤：可前後切換日期，顯示該日「目標 vs 已吃 vs 剩餘」（圓環）、
@@ -46,6 +47,13 @@ class DashboardScreen extends ConsumerWidget {
             icon: const Icon(Icons.tips_and_updates_outlined),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => AdviceScreen(profile: profile)),
+            ),
+          ),
+          IconButton(
+            tooltip: '備份與還原',
+            icon: const Icon(Icons.backup_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BackupScreen()),
             ),
           ),
           IconButton(

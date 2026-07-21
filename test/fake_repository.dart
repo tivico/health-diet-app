@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
@@ -104,8 +105,8 @@ class FakeHealthRepository implements HealthRepository {
   // --- 體重（依日期過濾）---
   @override
   Stream<List<WeightEntry>> watchWeightsBetween(DateTime from, DateTime to) async* {
-    yield _weightsInRange(from, to);
-    yield* _weightsChanged.stream.map((_) => _weightsInRange(from, to));
+    yield _inRange(from, to);
+    yield* _weightsChanged.stream.map((_) => _inRange(from, to));
   }
 
   @override
@@ -124,6 +125,91 @@ class FakeHealthRepository implements HealthRepository {
   Future<void> deleteWeight(DateTime day) async {
     final d = DateTime(day.year, day.month, day.day);
     _weights.removeWhere((w) => w.day == d);
+    _weightsChanged.add(null);
+  }
+
+  // --- 備份 ---
+  @override
+  Future<String> exportJson() async {
+    final p = _profile;
+    final map = <String, dynamic>{
+      'version': 1,
+      'profile': p == null
+          ? null
+          : {
+              'sex': p.sex.name,
+              'age': p.age,
+              'heightCm': p.heightCm,
+              'weightKg': p.weightKg,
+              'activity': p.activity.name,
+              'goal': p.goal.name,
+              'bodyFatPct': p.bodyFatPct,
+            },
+      'meals': [
+        for (final m in _meals)
+          {
+            'eatenAt': m.eatenAt.toIso8601String(),
+            'name': m.name,
+            'calories': m.calories,
+            'proteinG': m.proteinG,
+            'fatG': m.fatG,
+            'carbsG': m.carbsG,
+          }
+      ],
+      'weights': [
+        for (final w in _weights)
+          {
+            'day': w.day.toIso8601String(),
+            'weightKg': w.weightKg,
+            'bodyFatPct': w.bodyFatPct,
+          }
+      ],
+    };
+    return jsonEncode(map);
+  }
+
+  @override
+  Future<void> importJson(String json) async {
+    final map = jsonDecode(json) as Map<String, dynamic>;
+    _meals.clear();
+    _weights.clear();
+    final p = map['profile'];
+    if (p is Map<String, dynamic>) {
+      _profile = UserProfile(
+        sex: Sex.values.byName(p['sex'] as String),
+        age: p['age'] as int,
+        heightCm: (p['heightCm'] as num).toDouble(),
+        weightKg: (p['weightKg'] as num).toDouble(),
+        activity: ActivityLevel.values.byName(p['activity'] as String),
+        goal: Goal.values.byName(p['goal'] as String),
+        bodyFatPct:
+            p['bodyFatPct'] == null ? null : (p['bodyFatPct'] as num).toDouble(),
+      );
+      _profileCtrl.add(_profile);
+    }
+    for (final m in (map['meals'] as List? ?? const [])) {
+      final mm = m as Map<String, dynamic>;
+      _meals.add(MealEntry(
+        id: _nextId++,
+        eatenAt: DateTime.parse(mm['eatenAt'] as String),
+        name: mm['name'] as String,
+        calories: (mm['calories'] as num).toDouble(),
+        proteinG: (mm['proteinG'] as num).toDouble(),
+        fatG: (mm['fatG'] as num).toDouble(),
+        carbsG: (mm['carbsG'] as num).toDouble(),
+      ));
+    }
+    for (final w in (map['weights'] as List? ?? const [])) {
+      final ww = w as Map<String, dynamic>;
+      final day = DateTime.parse(ww['day'] as String);
+      _weights.add(WeightEntry(
+        day: DateTime(day.year, day.month, day.day),
+        weightKg: (ww['weightKg'] as num).toDouble(),
+        bodyFatPct:
+            ww['bodyFatPct'] == null ? null : (ww['bodyFatPct'] as num).toDouble(),
+      ));
+    }
+    _mealsChanged.add(null);
     _weightsChanged.add(null);
   }
 
@@ -151,7 +237,7 @@ class FakeHealthRepository implements HealthRepository {
         calories: c, proteinG: p, fatG: f, carbsG: cb, mealCount: n);
   }
 
-  List<WeightEntry> _weightsInRange(DateTime from, DateTime to) {
+  List<WeightEntry> _inRange(DateTime from, DateTime to) {
     return _weights
         .where((w) => !w.day.isBefore(from) && !w.day.isAfter(to))
         .toList()

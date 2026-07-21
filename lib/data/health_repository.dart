@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../domain/nutrition.dart';
@@ -58,6 +60,13 @@ abstract class HealthRepository {
     double? bodyFatPct,
   });
   Future<void> deleteWeight(DateTime day);
+
+  // 備份
+  /// 匯出所有資料成 JSON 字串。
+  Future<String> exportJson();
+
+  /// 從 JSON 字串還原（會覆蓋現有資料）。
+  Future<void> importJson(String json);
 }
 
 /// 以 drift 實作的資料存取層。
@@ -218,4 +227,99 @@ class DriftHealthRepository implements HealthRepository {
     final d = DateTime(day.year, day.month, day.day);
     return (_db.delete(_db.weightEntries)..where((t) => t.day.equals(d))).go();
   }
+
+  // ===== 備份 =====
+
+  @override
+  Future<String> exportJson() async {
+    final profileRow =
+        await (_db.select(_db.userProfiles)..where((t) => t.id.equals(1)))
+            .getSingleOrNull();
+    final meals = await _db.select(_db.mealEntries).get();
+    final weights = await _db.select(_db.weightEntries).get();
+
+    final map = <String, dynamic>{
+      'version': 1,
+      'profile': profileRow == null ? null : _profileToMap(_toDomain(profileRow)),
+      'meals': [
+        for (final m in meals)
+          {
+            'eatenAt': m.eatenAt.toIso8601String(),
+            'name': m.name,
+            'calories': m.calories,
+            'proteinG': m.proteinG,
+            'fatG': m.fatG,
+            'carbsG': m.carbsG,
+          }
+      ],
+      'weights': [
+        for (final w in weights)
+          {
+            'day': w.day.toIso8601String(),
+            'weightKg': w.weightKg,
+            'bodyFatPct': w.bodyFatPct,
+          }
+      ],
+    };
+    return const JsonEncoder.withIndent('  ').convert(map);
+  }
+
+  @override
+  Future<void> importJson(String json) async {
+    final map = jsonDecode(json) as Map<String, dynamic>;
+    await _db.transaction(() async {
+      await _db.delete(_db.mealEntries).go();
+      await _db.delete(_db.weightEntries).go();
+      await _db.delete(_db.userProfiles).go();
+
+      final p = map['profile'];
+      if (p is Map<String, dynamic>) {
+        await saveProfile(_profileFromMap(p));
+      }
+      for (final m in (map['meals'] as List? ?? const [])) {
+        final mm = m as Map<String, dynamic>;
+        await addMeal(
+          eatenAt: DateTime.parse(mm['eatenAt'] as String),
+          name: mm['name'] as String,
+          calories: (mm['calories'] as num).toDouble(),
+          proteinG: (mm['proteinG'] as num).toDouble(),
+          fatG: (mm['fatG'] as num).toDouble(),
+          carbsG: (mm['carbsG'] as num).toDouble(),
+        );
+      }
+      for (final w in (map['weights'] as List? ?? const [])) {
+        final ww = w as Map<String, dynamic>;
+        final day = DateTime.parse(ww['day'] as String);
+        await upsertWeight(
+          day: day,
+          weightKg: (ww['weightKg'] as num).toDouble(),
+          bodyFatPct: ww['bodyFatPct'] == null
+              ? null
+              : (ww['bodyFatPct'] as num).toDouble(),
+        );
+      }
+    });
+  }
 }
+
+/// 個人資料的 JSON 對應（enum 存名稱，跨版本較穩），備份共用。
+Map<String, dynamic> _profileToMap(UserProfile p) => {
+      'sex': p.sex.name,
+      'age': p.age,
+      'heightCm': p.heightCm,
+      'weightKg': p.weightKg,
+      'activity': p.activity.name,
+      'goal': p.goal.name,
+      'bodyFatPct': p.bodyFatPct,
+    };
+
+UserProfile _profileFromMap(Map<String, dynamic> m) => UserProfile(
+      sex: Sex.values.byName(m['sex'] as String),
+      age: m['age'] as int,
+      heightCm: (m['heightCm'] as num).toDouble(),
+      weightKg: (m['weightKg'] as num).toDouble(),
+      activity: ActivityLevel.values.byName(m['activity'] as String),
+      goal: Goal.values.byName(m['goal'] as String),
+      bodyFatPct:
+          m['bodyFatPct'] == null ? null : (m['bodyFatPct'] as num).toDouble(),
+    );
