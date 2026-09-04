@@ -1,11 +1,11 @@
 {
-    "name": "health",
-    "short_name": "health",
+    "name": "健康飲控",
+    "short_name": "健康飲控",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#2E7D5B",
+    "theme_color": "#2E7D5B",
+    "description": "記錄餐點熱量與體重，提供個人化每日目標與正確的體態衛教。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

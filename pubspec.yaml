@@ -1,5 +1,5 @@
 name: health
-description: "A new Flutter project."
+description: "健康飲控 App：記錄餐點熱量與體重，提供個人化每日目標與體態衛教。"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -53,6 +53,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   drift_dev: ^2.34.0
   build_runner: ^2.15.0
+  # 用來以程式產生 App 圖示（見 tool/generate_icon.dart）
+  image: ^3.3.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
