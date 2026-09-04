@@ -593,6 +593,15 @@ class $MealEntriesTable extends MealEntries
     requiredDuringInsert: true,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<MealType?, int> mealType =
+      GeneratedColumn<int>(
+        'meal_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      ).withConverter<MealType?>($MealEntriesTable.$convertermealTypen);
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     eatenAt,
@@ -601,6 +610,7 @@ class $MealEntriesTable extends MealEntries
     proteinG,
     fatG,
     carbsG,
+    mealType,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -702,6 +712,12 @@ class $MealEntriesTable extends MealEntries
         DriftSqlType.double,
         data['${effectivePrefix}carbs_g'],
       )!,
+      mealType: $MealEntriesTable.$convertermealTypen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}meal_type'],
+        ),
+      ),
     );
   }
 
@@ -709,6 +725,11 @@ class $MealEntriesTable extends MealEntries
   $MealEntriesTable createAlias(String alias) {
     return $MealEntriesTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<MealType, int, int> $convertermealType =
+      const EnumIndexConverter<MealType>(MealType.values);
+  static JsonTypeConverter2<MealType?, int?, int?> $convertermealTypen =
+      JsonTypeConverter2.asNullable($convertermealType);
 }
 
 class MealEntry extends DataClass implements Insertable<MealEntry> {
@@ -719,6 +740,10 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
   final double proteinG;
   final double fatG;
   final double carbsG;
+
+  /// 餐別（v2 加入）。nullable：v1 時期記的餐點本來就沒有這個資訊，
+  /// 硬塞預設值等於偽造資料，所以留 null 顯示為「未分類」。
+  final MealType? mealType;
   const MealEntry({
     required this.id,
     required this.eatenAt,
@@ -727,6 +752,7 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
     required this.proteinG,
     required this.fatG,
     required this.carbsG,
+    this.mealType,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -738,6 +764,11 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
     map['protein_g'] = Variable<double>(proteinG);
     map['fat_g'] = Variable<double>(fatG);
     map['carbs_g'] = Variable<double>(carbsG);
+    if (!nullToAbsent || mealType != null) {
+      map['meal_type'] = Variable<int>(
+        $MealEntriesTable.$convertermealTypen.toSql(mealType),
+      );
+    }
     return map;
   }
 
@@ -750,6 +781,9 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
       proteinG: Value(proteinG),
       fatG: Value(fatG),
       carbsG: Value(carbsG),
+      mealType: mealType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mealType),
     );
   }
 
@@ -766,6 +800,9 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
       proteinG: serializer.fromJson<double>(json['proteinG']),
       fatG: serializer.fromJson<double>(json['fatG']),
       carbsG: serializer.fromJson<double>(json['carbsG']),
+      mealType: $MealEntriesTable.$convertermealTypen.fromJson(
+        serializer.fromJson<int?>(json['mealType']),
+      ),
     );
   }
   @override
@@ -779,6 +816,9 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
       'proteinG': serializer.toJson<double>(proteinG),
       'fatG': serializer.toJson<double>(fatG),
       'carbsG': serializer.toJson<double>(carbsG),
+      'mealType': serializer.toJson<int?>(
+        $MealEntriesTable.$convertermealTypen.toJson(mealType),
+      ),
     };
   }
 
@@ -790,6 +830,7 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
     double? proteinG,
     double? fatG,
     double? carbsG,
+    Value<MealType?> mealType = const Value.absent(),
   }) => MealEntry(
     id: id ?? this.id,
     eatenAt: eatenAt ?? this.eatenAt,
@@ -798,6 +839,7 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
     proteinG: proteinG ?? this.proteinG,
     fatG: fatG ?? this.fatG,
     carbsG: carbsG ?? this.carbsG,
+    mealType: mealType.present ? mealType.value : this.mealType,
   );
   MealEntry copyWithCompanion(MealEntriesCompanion data) {
     return MealEntry(
@@ -808,6 +850,7 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
       proteinG: data.proteinG.present ? data.proteinG.value : this.proteinG,
       fatG: data.fatG.present ? data.fatG.value : this.fatG,
       carbsG: data.carbsG.present ? data.carbsG.value : this.carbsG,
+      mealType: data.mealType.present ? data.mealType.value : this.mealType,
     );
   }
 
@@ -820,14 +863,23 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
           ..write('calories: $calories, ')
           ..write('proteinG: $proteinG, ')
           ..write('fatG: $fatG, ')
-          ..write('carbsG: $carbsG')
+          ..write('carbsG: $carbsG, ')
+          ..write('mealType: $mealType')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, eatenAt, name, calories, proteinG, fatG, carbsG);
+  int get hashCode => Object.hash(
+    id,
+    eatenAt,
+    name,
+    calories,
+    proteinG,
+    fatG,
+    carbsG,
+    mealType,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -838,7 +890,8 @@ class MealEntry extends DataClass implements Insertable<MealEntry> {
           other.calories == this.calories &&
           other.proteinG == this.proteinG &&
           other.fatG == this.fatG &&
-          other.carbsG == this.carbsG);
+          other.carbsG == this.carbsG &&
+          other.mealType == this.mealType);
 }
 
 class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
@@ -849,6 +902,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
   final Value<double> proteinG;
   final Value<double> fatG;
   final Value<double> carbsG;
+  final Value<MealType?> mealType;
   const MealEntriesCompanion({
     this.id = const Value.absent(),
     this.eatenAt = const Value.absent(),
@@ -857,6 +911,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
     this.proteinG = const Value.absent(),
     this.fatG = const Value.absent(),
     this.carbsG = const Value.absent(),
+    this.mealType = const Value.absent(),
   });
   MealEntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -866,6 +921,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    this.mealType = const Value.absent(),
   }) : eatenAt = Value(eatenAt),
        name = Value(name),
        calories = Value(calories),
@@ -880,6 +936,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
     Expression<double>? proteinG,
     Expression<double>? fatG,
     Expression<double>? carbsG,
+    Expression<int>? mealType,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -889,6 +946,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
       if (proteinG != null) 'protein_g': proteinG,
       if (fatG != null) 'fat_g': fatG,
       if (carbsG != null) 'carbs_g': carbsG,
+      if (mealType != null) 'meal_type': mealType,
     });
   }
 
@@ -900,6 +958,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
     Value<double>? proteinG,
     Value<double>? fatG,
     Value<double>? carbsG,
+    Value<MealType?>? mealType,
   }) {
     return MealEntriesCompanion(
       id: id ?? this.id,
@@ -909,6 +968,7 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
       proteinG: proteinG ?? this.proteinG,
       fatG: fatG ?? this.fatG,
       carbsG: carbsG ?? this.carbsG,
+      mealType: mealType ?? this.mealType,
     );
   }
 
@@ -936,6 +996,11 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
     if (carbsG.present) {
       map['carbs_g'] = Variable<double>(carbsG.value);
     }
+    if (mealType.present) {
+      map['meal_type'] = Variable<int>(
+        $MealEntriesTable.$convertermealTypen.toSql(mealType.value),
+      );
+    }
     return map;
   }
 
@@ -948,7 +1013,8 @@ class MealEntriesCompanion extends UpdateCompanion<MealEntry> {
           ..write('calories: $calories, ')
           ..write('proteinG: $proteinG, ')
           ..write('fatG: $fatG, ')
-          ..write('carbsG: $carbsG')
+          ..write('carbsG: $carbsG, ')
+          ..write('mealType: $mealType')
           ..write(')'))
         .toString();
   }
@@ -1508,6 +1574,7 @@ typedef $$MealEntriesTableCreateCompanionBuilder =
       required double proteinG,
       required double fatG,
       required double carbsG,
+      Value<MealType?> mealType,
     });
 typedef $$MealEntriesTableUpdateCompanionBuilder =
     MealEntriesCompanion Function({
@@ -1518,6 +1585,7 @@ typedef $$MealEntriesTableUpdateCompanionBuilder =
       Value<double> proteinG,
       Value<double> fatG,
       Value<double> carbsG,
+      Value<MealType?> mealType,
     });
 
 class $$MealEntriesTableFilterComposer
@@ -1563,6 +1631,12 @@ class $$MealEntriesTableFilterComposer
     column: $table.carbsG,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnWithTypeConverterFilters<MealType?, MealType, int> get mealType =>
+      $composableBuilder(
+        column: $table.mealType,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
 }
 
 class $$MealEntriesTableOrderingComposer
@@ -1608,6 +1682,11 @@ class $$MealEntriesTableOrderingComposer
     column: $table.carbsG,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get mealType => $composableBuilder(
+    column: $table.mealType,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MealEntriesTableAnnotationComposer
@@ -1639,6 +1718,9 @@ class $$MealEntriesTableAnnotationComposer
 
   GeneratedColumn<double> get carbsG =>
       $composableBuilder(column: $table.carbsG, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<MealType?, int> get mealType =>
+      $composableBuilder(column: $table.mealType, builder: (column) => column);
 }
 
 class $$MealEntriesTableTableManager
@@ -1679,6 +1761,7 @@ class $$MealEntriesTableTableManager
                 Value<double> proteinG = const Value.absent(),
                 Value<double> fatG = const Value.absent(),
                 Value<double> carbsG = const Value.absent(),
+                Value<MealType?> mealType = const Value.absent(),
               }) => MealEntriesCompanion(
                 id: id,
                 eatenAt: eatenAt,
@@ -1687,6 +1770,7 @@ class $$MealEntriesTableTableManager
                 proteinG: proteinG,
                 fatG: fatG,
                 carbsG: carbsG,
+                mealType: mealType,
               ),
           createCompanionCallback:
               ({
@@ -1697,6 +1781,7 @@ class $$MealEntriesTableTableManager
                 required double proteinG,
                 required double fatG,
                 required double carbsG,
+                Value<MealType?> mealType = const Value.absent(),
               }) => MealEntriesCompanion.insert(
                 id: id,
                 eatenAt: eatenAt,
@@ -1705,6 +1790,7 @@ class $$MealEntriesTableTableManager
                 proteinG: proteinG,
                 fatG: fatG,
                 carbsG: carbsG,
+                mealType: mealType,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

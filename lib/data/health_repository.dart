@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
 import 'database.dart';
 
@@ -36,6 +37,7 @@ abstract class HealthRepository {
   /// 某段日期區間（含頭尾兩天）的所有餐點，給統計用。
   Stream<List<MealEntry>> watchMealsBetween(DateTime from, DateTime to);
   Stream<DailyTotals> watchDailyTotals(DateTime day);
+  /// [mealType] 省略時存成 null（未分類）。
   Future<int> addMeal({
     required DateTime eatenAt,
     required String name,
@@ -43,6 +45,7 @@ abstract class HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   });
   Future<void> updateMeal({
     required int id,
@@ -52,6 +55,7 @@ abstract class HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   });
   Future<void> deleteMeal(int id);
 
@@ -174,6 +178,7 @@ class DriftHealthRepository implements HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   }) {
     return _db.into(_db.mealEntries).insert(MealEntriesCompanion.insert(
           eatenAt: eatenAt,
@@ -182,6 +187,7 @@ class DriftHealthRepository implements HealthRepository {
           proteinG: proteinG,
           fatG: fatG,
           carbsG: carbsG,
+          mealType: Value(mealType),
         ));
   }
 
@@ -194,6 +200,7 @@ class DriftHealthRepository implements HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   }) {
     return (_db.update(_db.mealEntries)..where((t) => t.id.equals(id))).write(
       MealEntriesCompanion(
@@ -203,6 +210,7 @@ class DriftHealthRepository implements HealthRepository {
         proteinG: Value(proteinG),
         fatG: Value(fatG),
         carbsG: Value(carbsG),
+        mealType: Value(mealType),
       ),
     );
   }
@@ -254,7 +262,8 @@ class DriftHealthRepository implements HealthRepository {
     final weights = await _db.select(_db.weightEntries).get();
 
     final map = <String, dynamic>{
-      'version': 1,
+      // v2 起多了餐點的 mealType；舊備份沒有這個 key，匯入時視為未分類。
+      'version': 2,
       'profile': profileRow == null ? null : _profileToMap(_toDomain(profileRow)),
       'meals': [
         for (final m in meals)
@@ -265,6 +274,7 @@ class DriftHealthRepository implements HealthRepository {
             'proteinG': m.proteinG,
             'fatG': m.fatG,
             'carbsG': m.carbsG,
+            'mealType': m.mealType?.name,
           }
       ],
       'weights': [
@@ -300,6 +310,7 @@ class DriftHealthRepository implements HealthRepository {
           proteinG: (mm['proteinG'] as num).toDouble(),
           fatG: (mm['fatG'] as num).toDouble(),
           carbsG: (mm['carbsG'] as num).toDouble(),
+          mealType: mealTypeFromName(mm['mealType'] as String?),
         );
       }
       for (final w in (map['weights'] as List? ?? const [])) {

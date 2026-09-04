@@ -1,6 +1,7 @@
 /// 把 domain 列舉轉成中文顯示字串（展示層用，與計算邏輯分開）。
 library;
 
+import 'domain/meal_type.dart';
 import 'domain/nutrition.dart';
 
 String sexLabel(Sex s) => s == Sex.male ? '男' : '女';
@@ -17,4 +18,13 @@ String goalLabel(Goal g) => switch (g) {
       Goal.lose => '減脂',
       Goal.maintain => '維持體重',
       Goal.gain => '增肌',
+    };
+
+/// 餐別。`null` 代表舊資料（加入餐別欄位之前記的），顯示為「未分類」。
+String mealTypeLabel(MealType? t) => switch (t) {
+      MealType.breakfast => '早餐',
+      MealType.lunch => '午餐',
+      MealType.dinner => '晚餐',
+      MealType.snack => '點心',
+      null => '未分類',
     };

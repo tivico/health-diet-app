@@ -13,15 +13,15 @@ IndexedDB），**沒有伺服器**。這代表一件很重要的事：
 
 ## 目前的資料表
 
-定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 1**。
+定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 2**。
 
 | 資料表 | 用途 | 主鍵 |
 |---|---|---|
 | `UserProfiles` | 使用者基本資料（性別 / 年齡 / 身高 / 體重 / 體脂 / 活動量 / 目標） | `id`（固定為 1，單一使用者） |
-| `MealEntries` | 餐點紀錄（時間、名稱、熱量、三大營養素） | `id`（自動遞增） |
+| `MealEntries` | 餐點紀錄（時間、名稱、熱量、三大營養素、餐別） | `id`（自動遞增） |
 | `WeightEntries` | 體重紀錄，一天一筆 | `day`（當天午夜） |
 
-`sex` / `activity` / `goal` 用 drift 的 `intEnum` 儲存，也就是**存 enum 的 index**。
+`sex` / `activity` / `goal` / `mealType` 用 drift 的 `intEnum` 儲存，也就是**存 enum 的 index**。
 
 > ⚠️ **因此 enum 的順序等同資料格式**：不可以在既有 enum 中間插入新值、
 > 也不可以重新排序，只能往**最後面**加。否則舊資料會被解讀成別的意思。
@@ -124,3 +124,8 @@ dart run drift_dev schema generate drift_schemas/ test/drift_schemas/
 | 版本 | 內容 | 升級動作 |
 |---|---|---|
 | 1 | 初版：`UserProfiles` / `MealEntries` / `WeightEntries` | — |
+| 2 | `MealEntries` 加入 `mealType`（餐別，nullable） | `addColumn`；既有餐點維持 `null` → 顯示「未分類」 |
+
+備份 JSON 也跟著標到 `version: 2`（多了餐點的 `mealType`）。
+匯入時舊備份沒有這個欄位就當未分類，認不得的餐別名稱也一樣 ——
+少一個標籤，總比整份備份匯不進來好。

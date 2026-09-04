@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/health_repository.dart';
+import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
 import '../labels.dart';
 import '../providers.dart';
@@ -173,53 +174,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
             )
           else
-            Card(
-              child: Column(
-                children: [
-                  for (final m in meals)
-                    ListTile(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => AddMealScreen(initial: m)),
-                      ),
-                      title: Text(m.name),
-                      subtitle: Text(
-                        '${_hhmm(m.eatenAt)} ・ 蛋白 ${m.proteinG.toInt()} / 脂 ${m.fatG.toInt()} / 碳 ${m.carbsG.toInt()} g',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('${m.calories.toInt()} 大卡'),
-                          IconButton(
-                            tooltip: '刪除',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final repo = ref.read(repositoryProvider);
-                              repo.deleteMeal(m.id);
-                              messenger.hideCurrentSnackBar();
-                              messenger.showSnackBar(SnackBar(
-                                content: Text('已刪除「${m.name}」'),
-                                action: SnackBarAction(
-                                  label: '復原',
-                                  onPressed: () => repo.addMeal(
-                                    eatenAt: m.eatenAt,
-                                    name: m.name,
-                                    calories: m.calories,
-                                    proteinG: m.proteinG,
-                                    fatG: m.fatG,
-                                    carbsG: m.carbsG,
-                                  ),
-                                ),
-                              ));
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            ..._mealSections(context, ref, theme, meals),
           const SizedBox(height: 16),
 
           // === BMI ===
@@ -268,6 +223,84 @@ class DashboardScreen extends ConsumerWidget {
             '＊本資訊為估算，僅供參考，不取代專業醫療或營養師建議。',
             style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 餐點清單依餐別分組：每組一列標題（含筆數與小計）＋ 一張卡片。
+  /// 分組順序固定（早 → 午 → 晚 → 點心 → 未分類），空的組別不顯示。
+  List<Widget> _mealSections(BuildContext context, WidgetRef ref,
+      ThemeData theme, List<MealEntry> meals) {
+    final groups = groupByMealType(meals, (MealEntry m) => m.mealType);
+    return [
+      for (final g in groups) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${mealTypeLabel(g.type)}（${g.items.length}）',
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(color: theme.colorScheme.primary),
+              ),
+              Text(
+                '小計 ${g.items.fold<double>(0, (s, m) => s + m.calories).round()} 大卡',
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+              ),
+            ],
+          ),
+        ),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Column(
+            children: [for (final m in g.items) _mealTile(context, ref, m)],
+          ),
+        ),
+      ],
+    ];
+  }
+
+  Widget _mealTile(BuildContext context, WidgetRef ref, MealEntry m) {
+    return ListTile(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AddMealScreen(initial: m)),
+      ),
+      title: Text(m.name),
+      subtitle: Text(
+        '${_hhmm(m.eatenAt)} ・ 蛋白 ${m.proteinG.toInt()} / 脂 ${m.fatG.toInt()} / 碳 ${m.carbsG.toInt()} g',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('${m.calories.toInt()} 大卡'),
+          IconButton(
+            tooltip: '刪除',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
+              final repo = ref.read(repositoryProvider);
+              repo.deleteMeal(m.id);
+              messenger.hideCurrentSnackBar();
+              messenger.showSnackBar(SnackBar(
+                content: Text('已刪除「${m.name}」'),
+                action: SnackBarAction(
+                  label: '復原',
+                  onPressed: () => repo.addMeal(
+                    eatenAt: m.eatenAt,
+                    name: m.name,
+                    calories: m.calories,
+                    proteinG: m.proteinG,
+                    fatG: m.fatG,
+                    carbsG: m.carbsG,
+                    mealType: m.mealType, // 復原要連餐別一起還原
+                  ),
+                ),
+              ));
+            },
           ),
         ],
       ),

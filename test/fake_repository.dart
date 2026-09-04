@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
 
 /// 記憶體假實作：讓 Widget 測試不依賴真實 SQLite，但仍能驗證讀寫流程。
@@ -71,6 +72,7 @@ class FakeHealthRepository implements HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   }) async {
     final id = _nextId++;
     _meals.add(MealEntry(
@@ -81,6 +83,7 @@ class FakeHealthRepository implements HealthRepository {
       proteinG: proteinG,
       fatG: fatG,
       carbsG: carbsG,
+      mealType: mealType,
     ));
     _mealsChanged.add(null);
     return id;
@@ -95,6 +98,7 @@ class FakeHealthRepository implements HealthRepository {
     required double proteinG,
     required double fatG,
     required double carbsG,
+    MealType? mealType,
   }) async {
     final i = _meals.indexWhere((m) => m.id == id);
     if (i != -1) {
@@ -106,6 +110,7 @@ class FakeHealthRepository implements HealthRepository {
         proteinG: proteinG,
         fatG: fatG,
         carbsG: carbsG,
+        mealType: mealType,
       );
       _mealsChanged.add(null);
     }
@@ -148,7 +153,7 @@ class FakeHealthRepository implements HealthRepository {
   Future<String> exportJson() async {
     final p = _profile;
     final map = <String, dynamic>{
-      'version': 1,
+      'version': 2,
       'profile': p == null
           ? null
           : {
@@ -169,6 +174,7 @@ class FakeHealthRepository implements HealthRepository {
             'proteinG': m.proteinG,
             'fatG': m.fatG,
             'carbsG': m.carbsG,
+            'mealType': m.mealType?.name,
           }
       ],
       'weights': [
@@ -212,6 +218,7 @@ class FakeHealthRepository implements HealthRepository {
         proteinG: (mm['proteinG'] as num).toDouble(),
         fatG: (mm['fatG'] as num).toDouble(),
         carbsG: (mm['carbsG'] as num).toDouble(),
+        mealType: mealTypeFromName(mm['mealType'] as String?),
       ));
     }
     for (final w in (map['weights'] as List? ?? const [])) {

@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
 import '../domain/stats.dart';
+import '../labels.dart';
 import '../providers.dart';
 
 /// 統計：近 7 / 30 天的每日熱量長條圖與摘要。
@@ -53,6 +55,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       weightByDay: weightByDay,
       calorieTarget: plan.calorieTarget,
     );
+
+    // 各餐別的熱量小計（固定順序，空的餐別不會出現）
+    final byType = [
+      for (final g in groupByMealType(meals, (MealEntry m) => m.mealType))
+        (g.type, g.items.fold<double>(0, (s, m) => s + m.calories)),
+    ];
+    final totalCalories = byType.fold<double>(0, (s, e) => s + e.$2);
 
     return Scaffold(
       appBar: AppBar(title: const Text('統計')),
@@ -141,6 +150,31 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 target: plan.calorieTarget,
               ),
             ),
+
+          // === 各餐別分佈 ===
+          if (byType.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text('各餐別熱量分佈', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              _topMealTypeLine(byType, totalCalories),
+              style:
+                  theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  children: [
+                    for (final e in byType)
+                      _mealTypeRow(theme, e.$1, e.$2, totalCalories),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
           Text(
             '＊平均值只計算「有記錄」的日子，避免忘記記錄的日子把數字拉低。',
@@ -172,6 +206,54 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           ),
         ),
       );
+
+  /// 「吃最多的是哪一餐」。未分類不列入比較（那不是一餐，是還沒標的舊資料）。
+  String _topMealTypeLine(
+      List<(MealType?, double)> byType, double totalCalories) {
+    final named = byType.where((e) => e.$1 != null).toList()
+      ..sort((a, b) => b.$2.compareTo(a.$2));
+    if (named.isEmpty || totalCalories <= 0) {
+      return '這段期間的紀錄還沒有標餐別。之後新增餐點時選一下，這裡就會出現分佈。';
+    }
+    final top = named.first;
+    final pct = (top.$2 / totalCalories * 100).round();
+    return '這段期間吃最多的是「${mealTypeLabel(top.$1)}」，佔總攝取的 $pct%。';
+  }
+
+  /// 單一餐別一列：名稱、熱量與佔比，加一條比例長條。
+  Widget _mealTypeRow(
+      ThemeData theme, MealType? type, double kcal, double total) {
+    final ratio = total <= 0 ? 0.0 : (kcal / total).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(mealTypeLabel(type)),
+              Text('${kcal.round()} 大卡 ・ ${(ratio * 100).round()}%'),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 10,
+              backgroundColor:
+                  theme.colorScheme.primary.withValues(alpha: 0.12),
+              // 未分類用灰色，視覺上和真正的餐別區隔開
+              color: type == null
+                  ? theme.colorScheme.outline
+                  : theme.colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _weightCard(ThemeData theme, PeriodSummary summary) {
     final change = summary.weightChangeKg;

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../data/food_library.dart';
+import '../domain/meal_type.dart';
+import '../labels.dart';
 import '../providers.dart';
 import 'food_picker_screen.dart';
 
@@ -24,12 +26,15 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
   late final TextEditingController _protein;
   late final TextEditingController _fat;
   late final TextEditingController _carbs;
+  late MealType _mealType;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     final m = widget.initial;
+    // 新增時依現在時間猜餐別；編輯時沿用原本的（未分類的舊資料也用時間猜一個）。
+    _mealType = m?.mealType ?? guessMealType(m?.eatenAt ?? DateTime.now());
     _name = TextEditingController(text: m?.name ?? '');
     _calories = TextEditingController(text: _numText(m?.calories));
     _protein = TextEditingController(text: _numText(m?.proteinG));
@@ -81,6 +86,7 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
           proteinG: _num(_protein),
           fatG: _num(_fat),
           carbsG: _num(_carbs),
+          mealType: _mealType,
         );
       } else {
         await repo.updateMeal(
@@ -91,6 +97,7 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
           proteinG: _num(_protein),
           fatG: _num(_fat),
           carbsG: _num(_carbs),
+          mealType: _mealType,
         );
       }
       if (!mounted) return;
@@ -118,7 +125,20 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
               icon: const Icon(Icons.search),
               label: const Text('從食物庫挑選'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            const Text('餐別', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SegmentedButton<MealType>(
+              // 4 個選項要塞進手機寬度，關掉勾選圖示避免文字被擠掉
+              showSelectedIcon: false,
+              segments: [
+                for (final t in MealType.values)
+                  ButtonSegment(value: t, label: Text(mealTypeLabel(t))),
+              ],
+              selected: {_mealType},
+              onSelectionChanged: (s) => setState(() => _mealType = s.first),
+            ),
+            const SizedBox(height: 20),
             TextFormField(
               controller: _name,
               decoration: const InputDecoration(

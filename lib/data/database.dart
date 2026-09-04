@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
 
 // build_runner 會產生這個檔（型別安全的 row class、companion、查詢 API）。
@@ -39,6 +40,10 @@ class MealEntries extends Table {
   RealColumn get proteinG => real()();
   RealColumn get fatG => real()();
   RealColumn get carbsG => real()();
+
+  /// 餐別（v2 加入）。nullable：v1 時期記的餐點本來就沒有這個資訊，
+  /// 硬塞預設值等於偽造資料，所以留 null 顯示為「未分類」。
+  IntColumn get mealType => intEnum<MealType>().nullable()();
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +76,7 @@ class AppDatabase extends _$AppDatabase {
             ));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// 資料庫版本升級策略。
   ///
@@ -88,13 +93,13 @@ class AppDatabase extends _$AppDatabase {
         onCreate: (m) async {
           await m.createAll();
         },
-        // 既有使用者升級：從 from 版逐步升到 to 版
+        // 既有使用者升級：從 from 版逐步升到 to 版。
+        // 一律用 if 而非 else if —— 很久沒更新的人可能一次跳好幾版，要能逐步跑完。
         onUpgrade: (m, from, to) async {
-          // 目前仍是 schemaVersion 1，尚無升級步驟。
-          // 之後每加一版就補一段，例如：
-          //   if (from < 2) {
-          //     await m.addColumn(mealEntries, mealEntries.someNewColumn);
-          //   }
+          // v2：餐點加入「餐別」欄位。既有餐點維持 null（未分類）。
+          if (from < 2) {
+            await m.addColumn(mealEntries, mealEntries.mealType);
+          }
         },
         beforeOpen: (details) async {
           // 未來若加入資料表關聯，需要開啟外鍵約束才會生效
