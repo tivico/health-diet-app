@@ -60,6 +60,17 @@ class FakeHealthRepository implements HealthRepository {
   }
 
   @override
+  Stream<List<MealEntry>> watchRecentMeals({int limit = 100}) async* {
+    List<MealEntry> recent() =>
+        (_meals.toList()..sort((a, b) => b.eatenAt.compareTo(a.eatenAt)))
+            .take(limit)
+            .toList();
+
+    yield recent();
+    yield* _mealsChanged.stream.map((_) => recent());
+  }
+
+  @override
   Stream<DailyTotals> watchDailyTotals(DateTime day) async* {
     yield _totalsOn(day);
     yield* _mealsChanged.stream.map((_) => _totalsOn(day));

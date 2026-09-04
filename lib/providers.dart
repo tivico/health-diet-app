@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'data/database.dart';
 import 'data/health_repository.dart';
 import 'domain/nutrition.dart';
+import 'domain/recent_foods.dart';
 
 /// 全 App 單一資料庫實例。
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -63,6 +64,18 @@ final statsMealsProvider =
   final to = DateTime(now.year, now.month, now.day);
   final from = to.subtract(Duration(days: days - 1));
   return ref.watch(repositoryProvider).watchMealsBetween(from, to);
+});
+
+/// 「最近吃過」的食物（reactive）：同名只留最近一次，最多 [kRecentFoodLimit] 樣。
+/// 給食物庫的快選用 —— 自己吃過的東西比整個食物庫更常被選到。
+final recentFoodsProvider = StreamProvider<List<MealEntry>>((ref) {
+  return ref.watch(repositoryProvider).watchRecentMeals().map(
+        (meals) => distinctByName(
+          meals,
+          (MealEntry m) => m.name,
+          limit: kRecentFoodLimit,
+        ),
+      );
 });
 
 /// 近 90 天的體重紀錄（reactive），給趨勢圖與清單用。

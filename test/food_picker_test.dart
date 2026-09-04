@@ -37,10 +37,11 @@ void main() {
     await tester.tap(find.widgetWithText(FloatingActionButton, '新增餐點'));
     await tester.pumpAndSettle();
 
-    // 開啟食物庫
-    await tester.tap(find.widgetWithText(OutlinedButton, '從食物庫挑選'));
+    // 開啟挑選頁（沒有任何紀錄時只會有食物庫）
+    await tester.tap(find.widgetWithText(OutlinedButton, '最近吃過 / 食物庫'));
     await tester.pumpAndSettle();
-    expect(find.text('食物庫'), findsOneWidget);
+    expect(find.text('挑選食物'), findsOneWidget);
+    expect(find.text('最近吃過'), findsNothing);
 
     // 搜尋並選取
     await tester.enterText(find.byType(TextField).first, '雞腿');

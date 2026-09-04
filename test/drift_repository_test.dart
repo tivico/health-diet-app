@@ -254,6 +254,32 @@ void main() {
     });
   });
 
+  group('最近吃過', () {
+    test('由新到舊，且受 limit 限制', () async {
+      await addMeal(DateTime(2026, 3, 14, 12), '前天的便當', 700);
+      await addMeal(DateTime(2026, 3, 16, 12), '今天的便當', 800);
+      await addMeal(DateTime(2026, 3, 15, 12), '昨天的便當', 750);
+
+      final recent = await repo.watchRecentMeals().first;
+      expect(recent.map((m) => m.name),
+          ['今天的便當', '昨天的便當', '前天的便當']);
+
+      final limited = await repo.watchRecentMeals(limit: 2).first;
+      expect(limited.map((m) => m.name), ['今天的便當', '昨天的便當']);
+    });
+
+    test('新增餐點後 stream 會更新', () async {
+      final seen = <int>[];
+      final sub = repo.watchRecentMeals().listen((m) => seen.add(m.length));
+      await pumpEventQueue(times: 20);
+      await addMeal(DateTime(2026, 3, 15, 12), '便當', 800);
+      await pumpEventQueue(times: 20);
+      await sub.cancel();
+
+      expect(seen, [0, 1]);
+    });
+  });
+
   group('CSV 匯出', () {
     test('餐點依時間由舊到新，且包含所有紀錄（不限單日）', () async {
       await addMeal(DateTime(2026, 3, 16, 8), '隔天早餐', 300,

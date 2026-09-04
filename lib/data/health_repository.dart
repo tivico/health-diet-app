@@ -37,6 +37,10 @@ abstract class HealthRepository {
 
   /// 某段日期區間（含頭尾兩天）的所有餐點，給統計用。
   Stream<List<MealEntry>> watchMealsBetween(DateTime from, DateTime to);
+
+  /// 最近的餐點紀錄（由新到舊），給「最近吃過」快選用。
+  /// 取回來的是原始紀錄（同一樣食物可能出現多次），去重交給呼叫端。
+  Stream<List<MealEntry>> watchRecentMeals({int limit = 100});
   Stream<DailyTotals> watchDailyTotals(DateTime day);
   /// [mealType] 省略時存成 null（未分類）。
   Future<int> addMeal({
@@ -155,6 +159,14 @@ class DriftHealthRepository implements HealthRepository {
           t.eatenAt.isBiggerOrEqualValue(start) &
           t.eatenAt.isSmallerThanValue(end))
       ..orderBy([(t) => OrderingTerm.asc(t.eatenAt)]);
+    return q.watch();
+  }
+
+  @override
+  Stream<List<MealEntry>> watchRecentMeals({int limit = 100}) {
+    final q = _db.select(_db.mealEntries)
+      ..orderBy([(t) => OrderingTerm.desc(t.eatenAt)])
+      ..limit(limit);
     return q.watch();
   }
 

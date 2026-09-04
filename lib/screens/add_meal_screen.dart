@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
-import '../data/food_library.dart';
 import '../domain/meal_type.dart';
 import '../labels.dart';
 import '../providers.dart';
@@ -57,9 +56,9 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
 
   double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
 
-  /// 從食物庫挑一個常見食物，自動帶入各欄位（仍可自行修改）。
+  /// 從「最近吃過」或食物庫挑一樣，自動帶入各欄位（仍可自行修改）。
   Future<void> _pickFromLibrary() async {
-    final picked = await Navigator.of(context).push<FoodItem>(
+    final picked = await Navigator.of(context).push<PickedFood>(
       MaterialPageRoute(builder: (_) => const FoodPickerScreen()),
     );
     if (picked == null || !mounted) return;
@@ -123,7 +122,7 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
             OutlinedButton.icon(
               onPressed: _pickFromLibrary,
               icon: const Icon(Icons.search),
-              label: const Text('從食物庫挑選'),
+              label: const Text('最近吃過 / 食物庫'),
             ),
             const SizedBox(height: 20),
             const Text('餐別', style: TextStyle(fontWeight: FontWeight.bold)),
