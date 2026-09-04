@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:health/data/csv_export.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
 import 'package:health/domain/meal_type.dart';
@@ -149,6 +150,14 @@ class FakeHealthRepository implements HealthRepository {
   }
 
   // --- 備份 ---
+  @override
+  Future<String> exportMealsCsv() async => mealsToCsv(
+      _meals.toList()..sort((a, b) => a.eatenAt.compareTo(b.eatenAt)));
+
+  @override
+  Future<String> exportWeightsCsv() async =>
+      weightsToCsv(_weights.toList()..sort((a, b) => a.day.compareTo(b.day)));
+
   @override
   Future<String> exportJson() async {
     final p = _profile;

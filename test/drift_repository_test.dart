@@ -254,6 +254,35 @@ void main() {
     });
   });
 
+  group('CSV 匯出', () {
+    test('餐點依時間由舊到新，且包含所有紀錄（不限單日）', () async {
+      await addMeal(DateTime(2026, 3, 16, 8), '隔天早餐', 300,
+          mealType: MealType.breakfast);
+      await addMeal(DateTime(2026, 3, 15, 12), '便當', 800,
+          mealType: MealType.lunch);
+
+      final rows = (await repo.exportMealsCsv()).trim().split('\r\n');
+      expect(rows.length, 3); // 標題 + 2 筆
+      expect(rows[1], startsWith('2026-03-15,12:00,午餐,便當,800'));
+      expect(rows[2], startsWith('2026-03-16,08:00,早餐,隔天早餐,300'));
+    });
+
+    test('體重依日期由舊到新', () async {
+      await repo.upsertWeight(day: DateTime(2026, 3, 16), weightKg: 64.5);
+      await repo.upsertWeight(
+          day: DateTime(2026, 3, 15), weightKg: 65, bodyFatPct: 28);
+
+      final rows = (await repo.exportWeightsCsv()).trim().split('\r\n');
+      expect(rows[1], '2026-03-15,65,28');
+      expect(rows[2], '2026-03-16,64.5,');
+    });
+
+    test('沒有資料時仍有標題列', () async {
+      expect((await repo.exportMealsCsv()).trim().split('\r\n').length, 1);
+      expect((await repo.exportWeightsCsv()).trim().split('\r\n').length, 1);
+    });
+  });
+
   group('備份', () {
     test('匯出再匯入可完整還原，並覆蓋既有資料', () async {
       await repo.saveProfile(profile(weightKg: 65, targetWeightKg: 58));

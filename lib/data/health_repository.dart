@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 
 import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
+import 'csv_export.dart';
 import 'database.dart';
 
 /// 某一天的營養加總（純值物件，給 UI 顯示用）。
@@ -74,6 +75,12 @@ abstract class HealthRepository {
 
   /// 從 JSON 字串還原（會覆蓋現有資料）。
   Future<void> importJson(String json);
+
+  /// 匯出餐點成 CSV（試算表檢視用，**不能**用來還原）。
+  Future<String> exportMealsCsv();
+
+  /// 匯出體重紀錄成 CSV。
+  Future<String> exportWeightsCsv();
 }
 
 /// 以 drift 實作的資料存取層。
@@ -254,6 +261,22 @@ class DriftHealthRepository implements HealthRepository {
   }
 
   // ===== 備份 =====
+
+  @override
+  Future<String> exportMealsCsv() async {
+    final meals = await (_db.select(_db.mealEntries)
+          ..orderBy([(t) => OrderingTerm.asc(t.eatenAt)]))
+        .get();
+    return mealsToCsv(meals);
+  }
+
+  @override
+  Future<String> exportWeightsCsv() async {
+    final weights = await (_db.select(_db.weightEntries)
+          ..orderBy([(t) => OrderingTerm.asc(t.day)]))
+        .get();
+    return weightsToCsv(weights);
+  }
 
   @override
   Future<String> exportJson() async {

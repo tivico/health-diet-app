@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/health_repository.dart';
 import '../providers.dart';
 
 /// 備份與還原：匯出所有資料成文字（複製保存）、貼上文字還原。
+/// 另外可匯出 CSV 給試算表檢視（單向，不能用來還原）。
 /// 用純文字 copy/paste，跨平台且不需額外套件；之後可再加檔案下載。
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -15,6 +17,7 @@ class BackupScreen extends ConsumerStatefulWidget {
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   String? _exported;
+  String? _exportedName;
   final _importCtrl = TextEditingController();
   bool _busy = false;
 
@@ -24,12 +27,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     super.dispose();
   }
 
-  Future<void> _export() async {
+  /// 產生匯出內容並顯示在下方預覽區（JSON 備份與各種 CSV 共用同一塊）。
+  Future<void> _generate(
+      String name, Future<String> Function(HealthRepository repo) build) async {
     setState(() => _busy = true);
-    final json = await ref.read(repositoryProvider).exportJson();
+    final text = await build(ref.read(repositoryProvider));
     if (!mounted) return;
     setState(() {
-      _exported = json;
+      _exported = text;
+      _exportedName = name;
       _busy = false;
     });
   }
@@ -96,12 +102,58 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   ?.copyWith(color: theme.hintColor)),
           const SizedBox(height: 8),
           FilledButton.icon(
-            onPressed: _busy ? null : _export,
+            onPressed: _busy
+                ? null
+                : () => _generate('備份（JSON）', (repo) => repo.exportJson()),
             icon: const Icon(Icons.download_outlined),
             label: const Text('產生備份'),
           ),
+          const SizedBox(height: 24),
+          Text('匯出試算表（CSV）',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            '給 Excel / Google 試算表看的格式。'
+            '貼上後若擠在同一欄，用試算表的「資料剖析 / 分隔成不同欄」以逗號分隔即可。',
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+          ),
+          const SizedBox(height: 4),
+          Text('⚠️ CSV 只能拿來看，不能用來還原 —— 要備份請用上面的「產生備份」。',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.error)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _generate(
+                          '餐點 CSV', (repo) => repo.exportMealsCsv()),
+                  icon: const Icon(Icons.table_chart_outlined),
+                  label: const Text('餐點 CSV'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _generate(
+                          '體重 CSV', (repo) => repo.exportWeightsCsv()),
+                  icon: const Icon(Icons.monitor_weight_outlined),
+                  label: const Text('體重 CSV'),
+                ),
+              ),
+            ],
+          ),
           if (_exported != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            Text('目前顯示：${_exportedName ?? ''}',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 200),
