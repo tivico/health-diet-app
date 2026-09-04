@@ -1,0 +1,28 @@
+name: CI
+
+# 每次推到 main 或開 PR 時，自動跑靜態分析與測試。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 安裝相依套件
+        run: flutter pub get
+
+      - name: 靜態分析
+        run: flutter analyze
+
+      - name: 執行測試
+        run: flutter test
