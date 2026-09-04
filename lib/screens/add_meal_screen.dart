@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../data/food_library.dart';
 import '../providers.dart';
+import 'food_picker_screen.dart';
 
 /// 新增或編輯一筆餐點：名稱 + 熱量（必填），三大營養素（選填）。
 /// 帶入 [initial] 時為編輯模式（更新該筆），否則為新增模式。
+/// 也可從「食物庫」挑選常見食物自動帶入欄位。
 class AddMealScreen extends ConsumerStatefulWidget {
   final MealEntry? initial;
   const AddMealScreen({super.key, this.initial});
@@ -34,7 +37,8 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
     _carbs = TextEditingController(text: _numText(m?.carbsG));
   }
 
-  String _numText(double? v) => (v == null || v == 0) ? '' : v.toInt().toString();
+  String _numText(double? v) =>
+      (v == null || v == 0) ? '' : v.toInt().toString();
 
   @override
   void dispose() {
@@ -47,6 +51,21 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
   }
 
   double _num(TextEditingController c) => double.tryParse(c.text.trim()) ?? 0;
+
+  /// 從食物庫挑一個常見食物，自動帶入各欄位（仍可自行修改）。
+  Future<void> _pickFromLibrary() async {
+    final picked = await Navigator.of(context).push<FoodItem>(
+      MaterialPageRoute(builder: (_) => const FoodPickerScreen()),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _name.text = picked.name;
+      _calories.text = picked.calories.round().toString();
+      _protein.text = picked.proteinG.round().toString();
+      _fat.text = picked.fatG.round().toString();
+      _carbs.text = picked.carbsG.round().toString();
+    });
+  }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -94,6 +113,12 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            OutlinedButton.icon(
+              onPressed: _pickFromLibrary,
+              icon: const Icon(Icons.search),
+              label: const Text('從食物庫挑選'),
+            ),
+            const SizedBox(height: 16),
             TextFormField(
               controller: _name,
               decoration: const InputDecoration(
@@ -157,8 +182,8 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
   Widget _macroField(TextEditingController c, String label) => TextFormField(
         controller: c,
         keyboardType: TextInputType.number,
-        decoration:
-            InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+            labelText: label, border: const OutlineInputBorder()),
         validator: (v) {
           final t = v?.trim() ?? '';
           if (t.isEmpty) return null; // 選填
