@@ -9,20 +9,16 @@
 
 ## 🟢 現在就能做（沒有前置阻礙）
 
-### 1. drift schema migration 機制 ⭐ 建議優先
-目前 `schemaVersion = 1`、且沒有 migration 策略。**這是「解鎖器」** ——
-下面第 2、3 項都需要加欄位，沒有 migration 就會弄壞既有使用者的資料。
-
-- 加上 `MigrationStrategy`（`onUpgrade` 逐版處理）
-- 導入 drift 的 schema dump 與 migration 測試流程
+### ~~1. drift schema migration 機制~~ ✅ 完成
+已加上 `MigrationStrategy`（`onCreate` / `onUpgrade` 逐版處理 / `beforeOpen`），
+並寫成 [資料庫與 Schema 變更指南](DATABASE.md)。
+自動化 migration 測試仍待第 4 項（sqlite3 native lib）解決。
 
 ### 2. 餐點分餐別（早餐 / 午餐 / 晚餐 / 點心）
 記錄時選餐別；今日分頁依餐別分組顯示；統計可看「哪一餐吃最多」。
-→ 需要先做第 1 項（要加欄位）
 
 ### 3. 目標體重 + 預估達成時間
 設定目標體重，依熱量赤字估算「大約幾週達成」，並在體重趨勢圖上畫目標線。
-→ 需要先做第 1 項（要加欄位）
 
 ### 4. drift 整合測試（真實 SQL）
 目前 widget 測試用的是記憶體假 repo，真正的 SQL（當日 SUM 加總、日期區間查詢）

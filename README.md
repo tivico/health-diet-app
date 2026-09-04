@@ -3,7 +3,7 @@
 [![CI](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml)
 [![Deploy](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml)
 
-🔗 **線上 Demo**：<https://tivico.github.io/health-diet-app/>　｜　📄 **[部署說明](docs/DEPLOYMENT.md)**　｜　📋 **[待辦清單](docs/TODO.md)**
+🔗 **線上 Demo**：<https://tivico.github.io/health-diet-app/>　｜　📄 **[部署說明](docs/DEPLOYMENT.md)**　｜　🗄️ **[資料庫指南](docs/DATABASE.md)**　｜　📋 **[待辦清單](docs/TODO.md)**
 > 打開就能直接試用。資料只存在**你自己的瀏覽器**（local-first），不會上傳到任何伺服器。
 
 > 拍照記錄三餐、估算熱量與營養素，依個人資料（身高 / 體重 / 體脂 / 活動量）算出
@@ -100,7 +100,7 @@
 flutter test                                          # 跑單元 / Widget 測試
 flutter run -d chrome --web-port=8081                 # 在 Chrome 預覽（含熱重載）
 flutter analyze                                       # 靜態檢查
-dart run build_runner build                           # 改 drift schema 後重新產生程式碼
+dart run build_runner build                           # 改 drift schema 後重新產生程式碼（流程見 docs/DATABASE.md）
 dart run tool/generate_icon.dart                      # 重新產生各平台 App 圖示
 ```
 
