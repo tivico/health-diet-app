@@ -43,6 +43,21 @@ class FakeHealthRepository implements HealthRepository {
   }
 
   @override
+  Stream<List<MealEntry>> watchMealsBetween(DateTime from, DateTime to) async* {
+    List<MealEntry> inRange() {
+      final s = DateTime(from.year, from.month, from.day);
+      final e = DateTime(to.year, to.month, to.day).add(const Duration(days: 1));
+      return _meals
+          .where((m) => !m.eatenAt.isBefore(s) && m.eatenAt.isBefore(e))
+          .toList()
+        ..sort((a, b) => a.eatenAt.compareTo(b.eatenAt));
+    }
+
+    yield inRange();
+    yield* _mealsChanged.stream.map((_) => inRange());
+  }
+
+  @override
   Stream<DailyTotals> watchDailyTotals(DateTime day) async* {
     yield _totalsOn(day);
     yield* _mealsChanged.stream.map((_) => _totalsOn(day));

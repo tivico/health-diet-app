@@ -56,6 +56,15 @@ final dayTotalsProvider = StreamProvider<DailyTotals>(
       .watchDailyTotals(ref.watch(selectedDateProvider)),
 );
 
+/// 統計期間內的所有餐點（reactive）。參數為天數（例如 7 或 30，含今天）。
+final statsMealsProvider =
+    StreamProvider.family<List<MealEntry>, int>((ref, days) {
+  final now = DateTime.now();
+  final to = DateTime(now.year, now.month, now.day);
+  final from = to.subtract(Duration(days: days - 1));
+  return ref.watch(repositoryProvider).watchMealsBetween(from, to);
+});
+
 /// 近 90 天的體重紀錄（reactive），給趨勢圖與清單用。
 final weightHistoryProvider = StreamProvider<List<WeightEntry>>((ref) {
   final now = DateTime.now();

@@ -32,6 +32,9 @@ abstract class HealthRepository {
 
   // 餐點
   Stream<List<MealEntry>> watchMealsOn(DateTime day);
+
+  /// 某段日期區間（含頭尾兩天）的所有餐點，給統計用。
+  Stream<List<MealEntry>> watchMealsBetween(DateTime from, DateTime to);
   Stream<DailyTotals> watchDailyTotals(DateTime day);
   Future<int> addMeal({
     required DateTime eatenAt,
@@ -127,6 +130,18 @@ class DriftHealthRepository implements HealthRepository {
           t.eatenAt.isBiggerOrEqualValue(start) &
           t.eatenAt.isSmallerThanValue(end))
       ..orderBy([(t) => OrderingTerm.desc(t.eatenAt)]);
+    return q.watch();
+  }
+
+  @override
+  Stream<List<MealEntry>> watchMealsBetween(DateTime from, DateTime to) {
+    final start = DateTime(from.year, from.month, from.day);
+    final end = DateTime(to.year, to.month, to.day).add(const Duration(days: 1));
+    final q = _db.select(_db.mealEntries)
+      ..where((t) =>
+          t.eatenAt.isBiggerOrEqualValue(start) &
+          t.eatenAt.isSmallerThanValue(end))
+      ..orderBy([(t) => OrderingTerm.asc(t.eatenAt)]);
     return q.watch();
   }
 
