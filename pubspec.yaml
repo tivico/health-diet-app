@@ -55,6 +55,8 @@ dev_dependencies:
   build_runner: ^2.15.0
   # 用來以程式產生 App 圖示（見 tool/generate_icon.dart）
   image: ^3.3.0
+  # migration 測試要用舊版 schema 手動建一個資料庫（見 test/drift_migration_test.dart）
+  sqlite3: ^3.3.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -62,11 +62,16 @@ onUpgrade: (m, from, to) async {
 3. **在 `onUpgrade` 補上對應的 `if (from < 新版號) { ... }`**
 4. **重新產生程式碼**
    ```powershell
-   dart run build_runner build --delete-conflicting-outputs
+   dart run build_runner build
    ```
 5. **更新 repository、假 repo（`test/fake_repository.dart`）與備份格式**
-6. **`flutter analyze` + `flutter test`**
-7. **實機驗證升級路徑**（見下方）
+6. **在 [`test/drift_migration_test.dart`](../test/drift_migration_test.dart) 加一條升級測試**
+7. **留下 schema 快照**（給下一次的升級測試比對用）
+   ```powershell
+   dart run drift_dev schema dump lib/data/database.dart drift_schemas/
+   ```
+8. **`flutter analyze` + `flutter test`**
+9. **實機驗證升級路徑**（見下方）
 
 ---
 
@@ -94,9 +99,42 @@ onUpgrade: (m, from, to) async {
 
 ## 怎麼驗證升級沒壞
 
-### 目前的作法：實機升級測試（必做）
+### 自動化 migration 測試
 
-因為是 local-first，**最有效的驗證就是拿有舊資料的裝置去開新版**：
+[`test/drift_migration_test.dart`](../test/drift_migration_test.dart) 會**真的建一個
+舊版 schema 的 SQLite 檔案**、塞入「既有使用者」的資料，再用 `AppDatabase` 打開它，
+確認 `onUpgrade` 有把資料完整帶上來：
+
+- v1 → 最新版：個人資料 / 餐點 / 體重都在，新欄位為 null
+- v2 → 最新版：已經標好的餐別不會被弄丟
+- 升級後新欄位**寫得進去**（不是只讀得到 null）
+- 版本相同時不會重跑升級
+
+每條升級測試最後都會比對「升級後的欄位」與「全新安裝的欄位」是否一致 ——
+這樣才能確定升級路徑跟 `onCreate` 收斂到同一個 schema，而不是各走各的。
+
+> v1、v2 的舊 DDL 是**手寫重現**的（當時還沒開始留快照）。
+> 上面那個「與全新安裝比對」的斷言就是用來確保重現得夠準。
+
+### schema 快照（v3 起）
+
+`drift_schemas/` 存放每一版的 schema 快照，由 `drift_dev schema dump` 產生。
+之後版本變多時，可以用官方工具產生驗證用的輔助程式碼：
+
+```powershell
+dart run drift_dev schema generate drift_schemas/ test/drift_schemas/
+```
+
+### 整合測試（真實 SQL）
+
+[`test/drift_repository_test.dart`](../test/drift_repository_test.dart) 用記憶體
+SQLite 跑 `DriftHealthRepository`，涵蓋假 repo 測不到的部分：當日 `SUM` 加總
+（含「沒有紀錄時是 0 而不是 NULL」）、日期區間的邊界、`intEnum` 的存取、
+體重 upsert 的覆蓋行為、備份匯出入。
+
+### 實機升級測試（仍然建議做）
+
+自動化測試涵蓋不到真實裝置上的儲存層（Web 是 IndexedDB、行動平台是檔案）：
 
 1. 改動**前**先用現有版本（例如線上 Demo）記幾筆餐點與體重
 2. 部署新版後，在**同一個瀏覽器**重新整理（IndexedDB 會沿用，不要清除資料）
@@ -104,18 +142,6 @@ onUpgrade: (m, from, to) async {
 
 > 使用者層還有一道安全網：App 內建**備份匯出 / 匯入**（今日分頁 → 💾）。
 > 做有風險的 schema 變更前，可以先請使用者匯出一份。
-
-### 待補：自動化 migration 測試
-
-drift 提供 schema 快照 + `SchemaVerifier` 來自動驗證每條升級路徑：
-
-```powershell
-dart run drift_dev schema dump lib/data/database.dart drift_schemas/
-dart run drift_dev schema generate drift_schemas/ test/drift_schemas/
-```
-
-這需要在測試環境載入 sqlite3 native library，Windows 上要先解決
-（同 [TODO](TODO.md) 第 4 項「drift 整合測試」）。在那之前，**實機升級測試是必要的**。
 
 ---
 

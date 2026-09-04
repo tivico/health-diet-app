@@ -95,17 +95,18 @@
 ## 開發進度
 
 - ✅ 四大分頁（今日 / 體重 / 統計 / 衛教）皆可用；資料本地持久化、跨 Web + 行動
-- ✅ Git 版控；**71 項測試全過**（單元 + Widget 流程測試）
-- ✅ 資料庫升級機制（drift migration）就位，加欄位不會弄壞既有資料 → [說明](docs/DATABASE.md)
+- ✅ Git 版控；**92 項測試全過**（單元 + Widget 流程 + 真實 SQLite 整合測試）
+- ✅ 資料庫升級機制（drift migration）就位，並有**自動化升級測試**驗證舊資料不會遺失 → [說明](docs/DATABASE.md)
 - 🔨 下一步：拍照辨識（需 Android SDK + 實體手機）或功能深化
 
 ## 開發指令
 
 ```powershell
-flutter test                                          # 跑單元 / Widget 測試
+flutter test                                          # 跑單元 / Widget / 資料庫整合測試
 flutter run -d chrome --web-port=8081                 # 在 Chrome 預覽（含熱重載）
 flutter analyze                                       # 靜態檢查
 dart run build_runner build                           # 改 drift schema 後重新產生程式碼（流程見 docs/DATABASE.md）
+dart run drift_dev schema dump lib/data/database.dart drift_schemas/   # 改完 schema 留一份快照
 dart run tool/generate_icon.dart                      # 重新產生各平台 App 圖示
 ```
 

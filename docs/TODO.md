@@ -3,7 +3,7 @@
 > 依「現在就能做 / 需要前置作業 / 未來構想」分類。
 > 完成的項目會移到 README 的開發路線圖。
 
-最後更新：2026-09-04（完成第 1、2、3 項）
+最後更新：2026-09-04（完成第 1、2、3、4 項）
 
 ---
 
@@ -24,9 +24,11 @@ schema v1 時期的舊資料顯示為「未分類」。
 依熱量赤字推估的達成週數與日期，趨勢圖上畫出目標線。
 目標低於健康體重區間會出現勸阻提醒。「計算方式」也列出推估公式。
 
-### 4. drift 整合測試（真實 SQL）
-目前 widget 測試用的是記憶體假 repo，真正的 SQL（當日 SUM 加總、日期區間查詢）
-沒有被測到。Windows 上跑 `flutter test` 需先讓 sqlite3 native lib 可載入。
+### ~~4. drift 整合測試（真實 SQL）~~ ✅ 完成
+`test/drift_repository_test.dart` 用記憶體 SQLite 測真正的 SQL（當日 SUM、
+日期邊界、intEnum、upsert、備份）；`test/drift_migration_test.dart` 建舊版
+schema 的資料庫來驗證 v1 / v2 升級不會弄丟資料。
+（原本記的「Windows 上 sqlite3 載不到」實際上不存在，直接就能跑。）
 
 ### 5. 匯出 CSV
 現在的備份是 JSON（給程式讀）。再加一個 CSV 匯出，方便用 Excel／試算表檢視。
