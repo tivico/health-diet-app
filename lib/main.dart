@@ -16,17 +16,28 @@ class HealthApp extends StatelessWidget {
   /// 主題種子色（淺色 / 深色共用同一個品牌色）。
   static const _seed = Color(0xFF2E7D5B);
 
+  /// 依亮/暗色產生主題。
+  /// 表單欄位統一設定成「灰底」，全 App 風格一致（不必每個欄位各自設定）。
+  static ThemeData _themeFor(Brightness brightness) {
+    final scheme =
+        ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
+    return ThemeData(
+      colorScheme: scheme,
+      useMaterial3: true,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: scheme.surfaceContainerHighest,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '健康飲控',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: _seed, useMaterial3: true),
-      darkTheme: ThemeData(
-        colorSchemeSeed: _seed,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: _themeFor(Brightness.light),
+      darkTheme: _themeFor(Brightness.dark),
       themeMode: ThemeMode.system, // 跟隨系統深/淺色
       // 介面文字（含日期選擇器等系統元件）使用繁體中文。
       locale: const Locale('zh', 'TW'),

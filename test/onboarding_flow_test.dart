@@ -24,10 +24,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 一開始沒有資料 → 顯示引導設定
+    // 一開始沒有資料 → 顯示引導設定（欄位留白，靠提示文字引導）
     expect(find.text('建立你的個人資料'), findsOneWidget);
 
-    // 用預設值存檔
+    // 填入基本資料後存檔
+    await tester.enterText(find.widgetWithText(TextFormField, '年齡'), '28');
+    await tester.enterText(find.widgetWithText(TextFormField, '身高'), '165');
+    await tester.enterText(find.widgetWithText(TextFormField, '體重'), '65');
     await tester.tap(find.text('計算我的每日目標'));
     await tester.pumpAndSettle();
 

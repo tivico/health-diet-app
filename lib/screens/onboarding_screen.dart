@@ -8,8 +8,8 @@ import 'advice_screen.dart';
 
 /// 引導設定 / 編輯資料：輸入基本資料 → 存進本地資料庫。
 ///
-/// - 首次（[initial] 為 null）：存檔後跳出客製化健康建議，再由 HomeGate 顯示主畫面。
-/// - 編輯（帶入 [initial]）：被 push 上來，存檔後返回上一頁。
+/// - 首次（[initial] 為 null）：欄位留白、以提示文字引導，存檔後跳出客製化健康建議。
+/// - 編輯（帶入 [initial]）：帶入現有資料，存檔後返回上一頁。
 class OnboardingScreen extends ConsumerStatefulWidget {
   final UserProfile? initial;
   const OnboardingScreen({super.key, this.initial});
@@ -38,9 +38,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _sex = p?.sex ?? Sex.female;
     _goal = p?.goal ?? Goal.lose;
     _activity = p?.activity ?? ActivityLevel.light;
-    _age = TextEditingController(text: p?.age.toString() ?? '28');
-    _height = TextEditingController(text: p?.heightCm.toStringAsFixed(0) ?? '165');
-    _weight = TextEditingController(text: p?.weightKg.toStringAsFixed(0) ?? '65');
+    // 首次建立時欄位留白（用提示文字引導），編輯時才帶入現有資料。
+    _age = TextEditingController(text: p?.age.toString() ?? '');
+    _height = TextEditingController(text: p?.heightCm.toStringAsFixed(0) ?? '');
+    _weight = TextEditingController(text: p?.weightKg.toStringAsFixed(0) ?? '');
     _bodyFat =
         TextEditingController(text: p?.bodyFatPct?.toStringAsFixed(0) ?? '');
   }
@@ -134,6 +135,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: '年齡',
+                hintText: '例如 28',
                 suffixText: '歲',
                 border: OutlineInputBorder(),
               ),
@@ -146,6 +148,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: '身高',
+                hintText: '例如 165',
                 suffixText: 'cm',
                 border: OutlineInputBorder(),
               ),
@@ -158,6 +161,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: '體重',
+                hintText: '例如 65',
                 suffixText: 'kg',
                 border: OutlineInputBorder(),
               ),
@@ -170,6 +174,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 labelText: '體脂率（選填）',
+                hintText: '例如 25，不知道可留白',
                 suffixText: '%',
                 helperText: '有填的話會用更準的公式計算',
                 border: OutlineInputBorder(),
