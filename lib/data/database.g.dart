@@ -88,6 +88,17 @@ class $UserProfilesTable extends UserProfiles
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _targetWeightKgMeta = const VerificationMeta(
+    'targetWeightKg',
+  );
+  @override
+  late final GeneratedColumn<double> targetWeightKg = GeneratedColumn<double>(
+    'target_weight_kg',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -98,6 +109,7 @@ class $UserProfilesTable extends UserProfiles
     activity,
     goal,
     bodyFatPct,
+    targetWeightKg,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -144,6 +156,15 @@ class $UserProfilesTable extends UserProfiles
         bodyFatPct.isAcceptableOrUnknown(
           data['body_fat_pct']!,
           _bodyFatPctMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_weight_kg')) {
+      context.handle(
+        _targetWeightKgMeta,
+        targetWeightKg.isAcceptableOrUnknown(
+          data['target_weight_kg']!,
+          _targetWeightKgMeta,
         ),
       );
     }
@@ -194,6 +215,10 @@ class $UserProfilesTable extends UserProfiles
         DriftSqlType.double,
         data['${effectivePrefix}body_fat_pct'],
       ),
+      targetWeightKg: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}target_weight_kg'],
+      ),
     );
   }
 
@@ -219,6 +244,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
   final ActivityLevel activity;
   final Goal goal;
   final double? bodyFatPct;
+
+  /// 目標體重（v3 加入）。nullable：沒設定目標的人不該被硬塞一個數字。
+  final double? targetWeightKg;
   const UserProfileRow({
     required this.id,
     required this.sex,
@@ -228,6 +256,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     required this.activity,
     required this.goal,
     this.bodyFatPct,
+    this.targetWeightKg,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -252,6 +281,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     if (!nullToAbsent || bodyFatPct != null) {
       map['body_fat_pct'] = Variable<double>(bodyFatPct);
     }
+    if (!nullToAbsent || targetWeightKg != null) {
+      map['target_weight_kg'] = Variable<double>(targetWeightKg);
+    }
     return map;
   }
 
@@ -267,6 +299,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       bodyFatPct: bodyFatPct == null && nullToAbsent
           ? const Value.absent()
           : Value(bodyFatPct),
+      targetWeightKg: targetWeightKg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetWeightKg),
     );
   }
 
@@ -290,6 +325,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
         serializer.fromJson<int>(json['goal']),
       ),
       bodyFatPct: serializer.fromJson<double?>(json['bodyFatPct']),
+      targetWeightKg: serializer.fromJson<double?>(json['targetWeightKg']),
     );
   }
   @override
@@ -310,6 +346,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
         $UserProfilesTable.$convertergoal.toJson(goal),
       ),
       'bodyFatPct': serializer.toJson<double?>(bodyFatPct),
+      'targetWeightKg': serializer.toJson<double?>(targetWeightKg),
     };
   }
 
@@ -322,6 +359,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     ActivityLevel? activity,
     Goal? goal,
     Value<double?> bodyFatPct = const Value.absent(),
+    Value<double?> targetWeightKg = const Value.absent(),
   }) => UserProfileRow(
     id: id ?? this.id,
     sex: sex ?? this.sex,
@@ -331,6 +369,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     activity: activity ?? this.activity,
     goal: goal ?? this.goal,
     bodyFatPct: bodyFatPct.present ? bodyFatPct.value : this.bodyFatPct,
+    targetWeightKg: targetWeightKg.present
+        ? targetWeightKg.value
+        : this.targetWeightKg,
   );
   UserProfileRow copyWithCompanion(UserProfilesCompanion data) {
     return UserProfileRow(
@@ -344,6 +385,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       bodyFatPct: data.bodyFatPct.present
           ? data.bodyFatPct.value
           : this.bodyFatPct,
+      targetWeightKg: data.targetWeightKg.present
+          ? data.targetWeightKg.value
+          : this.targetWeightKg,
     );
   }
 
@@ -357,14 +401,24 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           ..write('weightKg: $weightKg, ')
           ..write('activity: $activity, ')
           ..write('goal: $goal, ')
-          ..write('bodyFatPct: $bodyFatPct')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('targetWeightKg: $targetWeightKg')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, sex, age, heightCm, weightKg, activity, goal, bodyFatPct);
+  int get hashCode => Object.hash(
+    id,
+    sex,
+    age,
+    heightCm,
+    weightKg,
+    activity,
+    goal,
+    bodyFatPct,
+    targetWeightKg,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -376,7 +430,8 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           other.weightKg == this.weightKg &&
           other.activity == this.activity &&
           other.goal == this.goal &&
-          other.bodyFatPct == this.bodyFatPct);
+          other.bodyFatPct == this.bodyFatPct &&
+          other.targetWeightKg == this.targetWeightKg);
 }
 
 class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
@@ -388,6 +443,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
   final Value<ActivityLevel> activity;
   final Value<Goal> goal;
   final Value<double?> bodyFatPct;
+  final Value<double?> targetWeightKg;
   const UserProfilesCompanion({
     this.id = const Value.absent(),
     this.sex = const Value.absent(),
@@ -397,6 +453,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     this.activity = const Value.absent(),
     this.goal = const Value.absent(),
     this.bodyFatPct = const Value.absent(),
+    this.targetWeightKg = const Value.absent(),
   });
   UserProfilesCompanion.insert({
     this.id = const Value.absent(),
@@ -407,6 +464,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     required ActivityLevel activity,
     required Goal goal,
     this.bodyFatPct = const Value.absent(),
+    this.targetWeightKg = const Value.absent(),
   }) : sex = Value(sex),
        age = Value(age),
        heightCm = Value(heightCm),
@@ -422,6 +480,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Expression<int>? activity,
     Expression<int>? goal,
     Expression<double>? bodyFatPct,
+    Expression<double>? targetWeightKg,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -432,6 +491,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       if (activity != null) 'activity': activity,
       if (goal != null) 'goal': goal,
       if (bodyFatPct != null) 'body_fat_pct': bodyFatPct,
+      if (targetWeightKg != null) 'target_weight_kg': targetWeightKg,
     });
   }
 
@@ -444,6 +504,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     Value<ActivityLevel>? activity,
     Value<Goal>? goal,
     Value<double?>? bodyFatPct,
+    Value<double?>? targetWeightKg,
   }) {
     return UserProfilesCompanion(
       id: id ?? this.id,
@@ -454,6 +515,7 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
       activity: activity ?? this.activity,
       goal: goal ?? this.goal,
       bodyFatPct: bodyFatPct ?? this.bodyFatPct,
+      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
     );
   }
 
@@ -490,6 +552,9 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
     if (bodyFatPct.present) {
       map['body_fat_pct'] = Variable<double>(bodyFatPct.value);
     }
+    if (targetWeightKg.present) {
+      map['target_weight_kg'] = Variable<double>(targetWeightKg.value);
+    }
     return map;
   }
 
@@ -503,7 +568,8 @@ class UserProfilesCompanion extends UpdateCompanion<UserProfileRow> {
           ..write('weightKg: $weightKg, ')
           ..write('activity: $activity, ')
           ..write('goal: $goal, ')
-          ..write('bodyFatPct: $bodyFatPct')
+          ..write('bodyFatPct: $bodyFatPct, ')
+          ..write('targetWeightKg: $targetWeightKg')
           ..write(')'))
         .toString();
   }
@@ -1320,6 +1386,7 @@ typedef $$UserProfilesTableCreateCompanionBuilder =
       required ActivityLevel activity,
       required Goal goal,
       Value<double?> bodyFatPct,
+      Value<double?> targetWeightKg,
     });
 typedef $$UserProfilesTableUpdateCompanionBuilder =
     UserProfilesCompanion Function({
@@ -1331,6 +1398,7 @@ typedef $$UserProfilesTableUpdateCompanionBuilder =
       Value<ActivityLevel> activity,
       Value<Goal> goal,
       Value<double?> bodyFatPct,
+      Value<double?> targetWeightKg,
     });
 
 class $$UserProfilesTableFilterComposer
@@ -1383,6 +1451,11 @@ class $$UserProfilesTableFilterComposer
     column: $table.bodyFatPct,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<double> get targetWeightKg => $composableBuilder(
+    column: $table.targetWeightKg,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$UserProfilesTableOrderingComposer
@@ -1433,6 +1506,11 @@ class $$UserProfilesTableOrderingComposer
     column: $table.bodyFatPct,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get targetWeightKg => $composableBuilder(
+    column: $table.targetWeightKg,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UserProfilesTableAnnotationComposer
@@ -1467,6 +1545,11 @@ class $$UserProfilesTableAnnotationComposer
 
   GeneratedColumn<double> get bodyFatPct => $composableBuilder(
     column: $table.bodyFatPct,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get targetWeightKg => $composableBuilder(
+    column: $table.targetWeightKg,
     builder: (column) => column,
   );
 }
@@ -1510,6 +1593,7 @@ class $$UserProfilesTableTableManager
                 Value<ActivityLevel> activity = const Value.absent(),
                 Value<Goal> goal = const Value.absent(),
                 Value<double?> bodyFatPct = const Value.absent(),
+                Value<double?> targetWeightKg = const Value.absent(),
               }) => UserProfilesCompanion(
                 id: id,
                 sex: sex,
@@ -1519,6 +1603,7 @@ class $$UserProfilesTableTableManager
                 activity: activity,
                 goal: goal,
                 bodyFatPct: bodyFatPct,
+                targetWeightKg: targetWeightKg,
               ),
           createCompanionCallback:
               ({
@@ -1530,6 +1615,7 @@ class $$UserProfilesTableTableManager
                 required ActivityLevel activity,
                 required Goal goal,
                 Value<double?> bodyFatPct = const Value.absent(),
+                Value<double?> targetWeightKg = const Value.absent(),
               }) => UserProfilesCompanion.insert(
                 id: id,
                 sex: sex,
@@ -1539,6 +1625,7 @@ class $$UserProfilesTableTableManager
                 activity: activity,
                 goal: goal,
                 bodyFatPct: bodyFatPct,
+                targetWeightKg: targetWeightKg,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

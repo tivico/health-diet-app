@@ -28,6 +28,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late final TextEditingController _height;
   late final TextEditingController _weight;
   late final TextEditingController _bodyFat;
+  late final TextEditingController _targetWeight;
 
   bool _saving = false;
 
@@ -44,6 +45,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _weight = TextEditingController(text: p?.weightKg.toStringAsFixed(0) ?? '');
     _bodyFat =
         TextEditingController(text: p?.bodyFatPct?.toStringAsFixed(0) ?? '');
+    _targetWeight = TextEditingController(
+        text: p?.targetWeightKg?.toStringAsFixed(0) ?? '');
   }
 
   @override
@@ -52,6 +55,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _height.dispose();
     _weight.dispose();
     _bodyFat.dispose();
+    _targetWeight.dispose();
     super.dispose();
   }
 
@@ -75,6 +79,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final bodyFatText = _bodyFat.text.trim();
+    final targetText = _targetWeight.text.trim();
     final profile = UserProfile(
       sex: _sex,
       age: int.parse(_age.text.trim()),
@@ -83,6 +88,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       activity: _activity,
       goal: _goal,
       bodyFatPct: bodyFatText.isEmpty ? null : double.parse(bodyFatText),
+      targetWeightKg: targetText.isEmpty ? null : double.parse(targetText),
     );
 
     // 先抓好 navigator / messenger，避免 await 後再用 context。
@@ -203,6 +209,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ],
               selected: {_goal},
               onSelectionChanged: (s) => setState(() => _goal = s.first),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _targetWeight,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '目標體重（選填）',
+                hintText: '例如 58，還沒想好可留白',
+                suffixText: 'kg',
+                helperText: '填了會在「體重」分頁顯示進度與預估達成時間',
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => _validateNumber(v,
+                  label: '目標體重', min: 20, max: 400, required: false),
             ),
             const SizedBox(height: 28),
             FilledButton(

@@ -153,7 +153,7 @@ class FakeHealthRepository implements HealthRepository {
   Future<String> exportJson() async {
     final p = _profile;
     final map = <String, dynamic>{
-      'version': 2,
+      'version': 3,
       'profile': p == null
           ? null
           : {
@@ -164,6 +164,7 @@ class FakeHealthRepository implements HealthRepository {
               'activity': p.activity.name,
               'goal': p.goal.name,
               'bodyFatPct': p.bodyFatPct,
+              'targetWeightKg': p.targetWeightKg,
             },
       'meals': [
         for (final m in _meals)
@@ -205,6 +206,9 @@ class FakeHealthRepository implements HealthRepository {
         goal: Goal.values.byName(p['goal'] as String),
         bodyFatPct:
             p['bodyFatPct'] == null ? null : (p['bodyFatPct'] as num).toDouble(),
+        targetWeightKg: p['targetWeightKg'] == null
+            ? null
+            : (p['targetWeightKg'] as num).toDouble(),
       );
       _profileCtrl.add(_profile);
     }

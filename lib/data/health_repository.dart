@@ -95,6 +95,7 @@ class DriftHealthRepository implements HealthRepository {
         activity: r.activity,
         goal: r.goal,
         bodyFatPct: r.bodyFatPct,
+        targetWeightKg: r.targetWeightKg,
       );
 
   @override
@@ -122,6 +123,7 @@ class DriftHealthRepository implements HealthRepository {
             activity: Value(p.activity),
             goal: Value(p.goal),
             bodyFatPct: Value(p.bodyFatPct),
+            targetWeightKg: Value(p.targetWeightKg),
           ),
         );
   }
@@ -262,8 +264,9 @@ class DriftHealthRepository implements HealthRepository {
     final weights = await _db.select(_db.weightEntries).get();
 
     final map = <String, dynamic>{
-      // v2 起多了餐點的 mealType；舊備份沒有這個 key，匯入時視為未分類。
-      'version': 2,
+      // 舊備份缺少後來才加的欄位（v2 的 mealType、v3 的 targetWeightKg），
+      // 匯入時一律當作沒有，不影響還原。
+      'version': 3,
       'profile': profileRow == null ? null : _profileToMap(_toDomain(profileRow)),
       'meals': [
         for (final m in meals)
@@ -337,6 +340,7 @@ Map<String, dynamic> _profileToMap(UserProfile p) => {
       'activity': p.activity.name,
       'goal': p.goal.name,
       'bodyFatPct': p.bodyFatPct,
+      'targetWeightKg': p.targetWeightKg,
     };
 
 UserProfile _profileFromMap(Map<String, dynamic> m) => UserProfile(
@@ -348,4 +352,7 @@ UserProfile _profileFromMap(Map<String, dynamic> m) => UserProfile(
       goal: Goal.values.byName(m['goal'] as String),
       bodyFatPct:
           m['bodyFatPct'] == null ? null : (m['bodyFatPct'] as num).toDouble(),
+      targetWeightKg: m['targetWeightKg'] == null
+          ? null
+          : (m['targetWeightKg'] as num).toDouble(),
     );

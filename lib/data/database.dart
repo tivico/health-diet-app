@@ -25,6 +25,9 @@ class UserProfiles extends Table {
   IntColumn get goal => intEnum<Goal>()();
   RealColumn get bodyFatPct => real().nullable()();
 
+  /// 目標體重（v3 加入）。nullable：沒設定目標的人不該被硬塞一個數字。
+  RealColumn get targetWeightKg => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -76,7 +79,7 @@ class AppDatabase extends _$AppDatabase {
             ));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// 資料庫版本升級策略。
   ///
@@ -99,6 +102,10 @@ class AppDatabase extends _$AppDatabase {
           // v2：餐點加入「餐別」欄位。既有餐點維持 null（未分類）。
           if (from < 2) {
             await m.addColumn(mealEntries, mealEntries.mealType);
+          }
+          // v3：個人資料加入「目標體重」。既有使用者維持 null（未設定）。
+          if (from < 3) {
+            await m.addColumn(userProfiles, userProfiles.targetWeightKg);
           }
         },
         beforeOpen: (details) async {

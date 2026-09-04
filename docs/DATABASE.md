@@ -13,11 +13,11 @@ IndexedDB），**沒有伺服器**。這代表一件很重要的事：
 
 ## 目前的資料表
 
-定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 2**。
+定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 3**。
 
 | 資料表 | 用途 | 主鍵 |
 |---|---|---|
-| `UserProfiles` | 使用者基本資料（性別 / 年齡 / 身高 / 體重 / 體脂 / 活動量 / 目標） | `id`（固定為 1，單一使用者） |
+| `UserProfiles` | 使用者基本資料（性別 / 年齡 / 身高 / 體重 / 體脂 / 活動量 / 目標 / 目標體重） | `id`（固定為 1，單一使用者） |
 | `MealEntries` | 餐點紀錄（時間、名稱、熱量、三大營養素、餐別） | `id`（自動遞增） |
 | `WeightEntries` | 體重紀錄，一天一筆 | `day`（當天午夜） |
 
@@ -125,7 +125,8 @@ dart run drift_dev schema generate drift_schemas/ test/drift_schemas/
 |---|---|---|
 | 1 | 初版：`UserProfiles` / `MealEntries` / `WeightEntries` | — |
 | 2 | `MealEntries` 加入 `mealType`（餐別，nullable） | `addColumn`；既有餐點維持 `null` → 顯示「未分類」 |
+| 3 | `UserProfiles` 加入 `targetWeightKg`（目標體重，nullable） | `addColumn`；既有使用者維持 `null` → 顯示設定引導 |
 
-備份 JSON 也跟著標到 `version: 2`（多了餐點的 `mealType`）。
-匯入時舊備份沒有這個欄位就當未分類，認不得的餐別名稱也一樣 ——
+備份 JSON 的 `version` 跟著一起標（目前 3）。匯入時缺少後來才加的欄位
+一律當作沒有，認不得的餐別名稱也一樣 ——
 少一個標籤，總比整份備份匯不進來好。

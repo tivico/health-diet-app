@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/nutrition.dart';
 import '../domain/recommendations.dart';
+import '../domain/weight_goal.dart';
 
 /// 計算方式說明：把每個數字的公式帶入使用者的實際資料，透明呈現。
 class CalculationScreen extends StatelessWidget {
@@ -54,6 +55,30 @@ class CalculationScreen extends StatelessWidget {
         target = '維持：= TDEE ≈ ${plan.calorieTarget.round()} 大卡';
     }
 
+    // --- 目標體重達成時間（有設定目標才顯示）---
+    final projection = projectWeightGoal(profile: profile, plan: plan);
+    String? goalText;
+    if (projection != null) {
+      final dailyDelta = plan.calorieTarget - plan.tdee;
+      final weekly = projection.weeklyChangeKg;
+      final buf = StringBuffer()
+        ..writeln('每日熱量差 = 每日目標 − TDEE')
+        ..writeln('= ${plan.calorieTarget.round()} − ${plan.tdee.round()} '
+            '= ${dailyDelta.round()} 大卡')
+        ..writeln('每週體重變化 ≒ 每日熱量差 × 7 ÷ ${kKcalPerKgBodyWeight.round()}')
+        ..writeln('= ${dailyDelta.round()} × 7 ÷ ${kKcalPerKgBodyWeight.round()} '
+            '≈ ${weekly.toStringAsFixed(2)} 公斤');
+      if (projection.reached) {
+        buf.write('目前體重已在目標 ±$kGoalReachedToleranceKg 公斤內 → 已達成');
+      } else if (projection.directionMismatch) {
+        buf.write('目前的每日熱量目標不會朝目標體重前進，因此無法推估時間');
+      } else {
+        buf.write('預估週數 = 還差 ${projection.remainingAbsKg.toStringAsFixed(1)} '
+            '÷ ${weekly.abs().toStringAsFixed(2)} ≈ ${projection.weeksToTarget} 週');
+      }
+      goalText = buf.toString();
+    }
+
     // --- 三大營養素 ---
     final macros = '蛋白質 = $proteinPerKg 克/公斤 × ${_n(w)} = ${plan.macros.proteinG.round()} 克\n'
         '脂肪 = 熱量 × ${(kFatCalorieRatio * 100).round()}% ÷ 9 = ${plan.macros.fatG.round()} 克\n'
@@ -81,6 +106,9 @@ class CalculationScreen extends StatelessWidget {
           _card(theme, 'BMR（基礎代謝率）', bmr, '一天什麼都不做也會消耗的熱量'),
           _card(theme, 'TDEE（每日總消耗）', tdee, 'BMR 再乘上你的活動量'),
           _card(theme, '每日熱量目標', target, '依你的目標調整，並設有安全下限'),
+          if (goalText != null)
+            _card(theme, '目標體重達成時間', goalText,
+                '線性估算；體重下降後代謝也會下降，實際通常更久'),
           _card(theme, '三大營養素', macros, null),
           _card(theme, '每日飲水量', waterText, '粗略參考值，運動或天熱可再增加'),
           _card(theme, 'BMI（身體質量指數）', bmi, null),

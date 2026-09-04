@@ -62,6 +62,10 @@ class UserProfile {
   /// 體脂率（%），可選；有提供時會用較準的 Katch-McArdle 公式。
   final double? bodyFatPct;
 
+  /// 目標體重（公斤），可選。只影響「還差多少 / 預估多久」的呈現，
+  /// 不參與 BMR / TDEE / 每日熱量目標的計算。
+  final double? targetWeightKg;
+
   UserProfile({
     required this.sex,
     required this.age,
@@ -70,6 +74,7 @@ class UserProfile {
     this.activity = ActivityLevel.sedentary,
     this.goal = Goal.maintain,
     this.bodyFatPct,
+    this.targetWeightKg,
   }) {
     // 基本驗證：壞資料在入口就擋掉，而不是算出荒謬的結果。
     if (age <= 0 || age > 120) {
@@ -80,6 +85,10 @@ class UserProfile {
     final bf = bodyFatPct;
     if (bf != null && (bf <= 0 || bf >= 75)) {
       throw ArgumentError('體脂率需介於 0–75%');
+    }
+    final tw = targetWeightKg;
+    if (tw != null && (tw <= 0 || tw > 400)) {
+      throw ArgumentError('目標體重需介於 1–400 公斤');
     }
   }
 }
