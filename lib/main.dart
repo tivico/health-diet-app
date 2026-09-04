@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'providers.dart';
@@ -12,15 +13,29 @@ void main() {
 class HealthApp extends StatelessWidget {
   const HealthApp({super.key});
 
+  /// 主題種子色（淺色 / 深色共用同一個品牌色）。
+  static const _seed = Color(0xFF2E7D5B);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '健康飲控',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF2E7D5B),
+      theme: ThemeData(colorSchemeSeed: _seed, useMaterial3: true),
+      darkTheme: ThemeData(
+        colorSchemeSeed: _seed,
+        brightness: Brightness.dark,
         useMaterial3: true,
       ),
+      themeMode: ThemeMode.system, // 跟隨系統深/淺色
+      // 介面文字（含日期選擇器等系統元件）使用繁體中文。
+      locale: const Locale('zh', 'TW'),
+      supportedLocales: const [Locale('zh', 'TW'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       home: const HomeGate(),
     );
   }
