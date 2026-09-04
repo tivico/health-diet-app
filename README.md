@@ -1,6 +1,10 @@
 # 健康飲控 App（專案開發中）
 
 [![CI](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml)
+[![Deploy](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml)
+
+🔗 **線上 Demo**：<https://tivico.github.io/health-diet-app/>
+> 打開就能直接試用。資料只存在**你自己的瀏覽器**（local-first），不會上傳到任何伺服器。
 
 > 拍照記錄三餐、估算熱量與營養素，依個人資料（身高 / 體重 / 體脂 / 活動量）算出
 > 每日目標，並提供正確的體重與體態衛教。面向台灣一般想減重 / 做飲食控制的大眾。

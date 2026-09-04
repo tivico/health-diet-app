@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+# 每次推到 main 就自動建置 Web 版並部署到 GitHub Pages。
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 也可以在 Actions 分頁手動觸發
+
+# GitHub Pages 部署所需權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署；有新的就取消排隊中的舊部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & Deploy Web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 安裝相依套件
+        run: flutter pub get
+
+      # Pages 掛在 /health-diet-app/ 子路徑，base-href 必須對應，
+      # 否則資源（含 drift 的 sqlite3.wasm / drift_worker.js）會 404。
+      - name: 建置 Web 版
+        run: flutter build web --release --base-href /health-diet-app/
+
+      # enablement: true → 若 repo 尚未啟用 Pages，會自動啟用（省去手動設定）
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
