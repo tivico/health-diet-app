@@ -149,6 +149,20 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('375×667 手機：衛教文章內文與資料來源不會版面溢出', (tester) async {
+    await pumpApp(tester, await seeded());
+
+    await tester.tap(find.text('衛教'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('BMI 是參考，不是全部'));
+    await tester.pumpAndSettle();
+
+    // 捲到最底看資料來源區（來源名稱通常很長，最容易擠出去）
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    expect(find.text('資料來源'), findsOneWidget);
+  });
+
   testWidgets('375×667 手機：備份與還原頁不會版面溢出', (tester) async {
     await pumpApp(tester, await seeded());
 

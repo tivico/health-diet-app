@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/education_content.dart';
 import '../theme.dart';
@@ -28,7 +29,10 @@ class EducationScreen extends StatelessWidget {
               ),
             const SizedBox(height: 12),
           ],
-          const FootNote('＊以上為一般衛教資訊，非醫療診斷；個別狀況請諮詢專業人員。'),
+          const FootNote(
+              '＊每篇文章末皆附資料來源（衛福部 / 國民健康署等官方指引，以及同儕審查文獻），'
+              '可點開自行查證。\n'
+              '以上為一般衛教資訊，非醫療診斷；個別狀況請諮詢專業人員。'),
         ],
       ),
     );
@@ -72,6 +76,20 @@ class _ArticleCard extends StatelessWidget {
                     height: 1.45,
                   ),
                 ),
+                if (article.sources.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  // 讓清單上就看得出這篇有出處可查
+                  Row(
+                    children: [
+                      Icon(Icons.library_books_outlined, size: 13, color: color),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${article.sources.length} 則資料來源',
+                        style: theme.textTheme.labelSmall?.copyWith(color: color),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -144,11 +162,83 @@ class ArticleDetailScreen extends StatelessWidget {
               style: theme.textTheme.bodyLarge?.copyWith(height: 1.75),
             ),
           ),
+          if (article.sources.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            SectionHeader(
+              icon: Icons.library_books_outlined,
+              title: '資料來源',
+              color: color,
+              subtitle: '點一下可開啟原始出處自行查證',
+            ),
+            for (final s in article.sources)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _SourceCard(source: s, color: color),
+              ),
+          ],
           const SizedBox(height: 20),
           const FootNote('＊本資訊為一般衛教，非醫療診斷。'),
         ],
       ),
     );
+  }
+}
+
+/// 一則資料來源：名稱、它支持文中的哪個說法，以及可點開的網址。
+class _SourceCard extends StatelessWidget {
+  final ArticleSource source;
+  final Color color;
+
+  const _SourceCard({required this.source, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SoftCard(
+      padding: const EdgeInsets.all(14),
+      onTap: () => _open(context, source.url),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(source.title, style: theme.textTheme.titleSmall),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.open_in_new, size: 16, color: color),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            source.note,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 先讓使用者看得到要去哪個網站，再決定要不要點
+          Text(
+            _host(source.url),
+            style: theme.textTheme.labelSmall?.copyWith(color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _host(String url) => Uri.tryParse(url)?.host ?? url;
+
+  Future<void> _open(BuildContext context, String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = Uri.tryParse(url);
+    final ok = uri != null &&
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok) {
+      messenger.showSnackBar(SnackBar(content: Text('無法開啟連結：$url')));
+    }
   }
 }
 

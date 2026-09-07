@@ -41,5 +41,11 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- 衛教文章的資料來源連結要用瀏覽器開啟；Android 11 起需宣告才查得到瀏覽器
+             （url_launcher 的要求，見 https://pub.dev/packages/url_launcher）。 -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>
