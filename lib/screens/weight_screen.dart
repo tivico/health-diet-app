@@ -6,6 +6,8 @@ import '../data/database.dart';
 import '../domain/nutrition.dart';
 import '../domain/weight_goal.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 import 'add_weight_screen.dart';
 import 'onboarding_screen.dart';
 
@@ -41,7 +43,7 @@ class WeightScreen extends ConsumerWidget {
         label: const Text('記錄體重'),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
         children: [
           if (projection != null)
             _GoalCard(
@@ -51,59 +53,51 @@ class WeightScreen extends ConsumerWidget {
             )
           else if (profile != null)
             _SetGoalPrompt(profile: profile),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
           if (entries.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Text(
-                '還沒有體重紀錄。\n按右下角「記錄體重」開始追蹤。',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: theme.hintColor),
-              ),
+            const EmptyState(
+              icon: Icons.monitor_weight_outlined,
+              message: '還沒有體重紀錄。\n按右下角「記錄體重」開始追蹤。',
             )
           else ...[
-            Text('體重趨勢（近 90 天）', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 220,
-              child: _WeightChart(
-                entries: entries,
-                targetKg: profile?.targetWeightKg,
+            const SectionHeader(
+              icon: Icons.show_chart,
+              title: '體重趨勢（近 90 天）',
+              subtitle: '虛線是你的目標體重',
+            ),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
+              child: SizedBox(
+                height: 210,
+                child: _WeightChart(
+                  entries: entries,
+                  targetKg: profile?.targetWeightKg,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            Text('紀錄', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Card(
+            const SizedBox(height: 22),
+            SectionHeader(
+              icon: Icons.event_note_outlined,
+              title: '紀錄',
+              color: theme.palette.carbs,
+              trailing: PillLabel(
+                text: '${entries.length} 筆',
+                color: theme.palette.carbs,
+              ),
+            ),
+            SoftCard(
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
                 children: [
-                  for (final e in entries.reversed)
-                    ListTile(
-                      title: Text('${e.weightKg.toStringAsFixed(1)} kg'),
-                      subtitle: Text(_subtitle(e)),
-                      trailing: IconButton(
-                        tooltip: '刪除',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () {
-                          final messenger = ScaffoldMessenger.of(context);
-                          final repo = ref.read(repositoryProvider);
-                          repo.deleteWeight(e.day);
-                          messenger.hideCurrentSnackBar();
-                          messenger.showSnackBar(SnackBar(
-                            content: Text(
-                                '已刪除 ${e.weightKg.toStringAsFixed(1)} kg 的紀錄'),
-                            action: SnackBarAction(
-                              label: '復原',
-                              onPressed: () => repo.upsertWeight(
-                                day: e.day,
-                                weightKg: e.weightKg,
-                                bodyFatPct: e.bodyFatPct,
-                              ),
-                            ),
-                          ));
-                        },
-                      ),
+                  for (var i = entries.length - 1; i >= 0; i--) ...[
+                    if (i < entries.length - 1)
+                      const Divider(indent: 16, endIndent: 16, height: 1),
+                    _WeightTile(
+                      entry: entries[i],
+                      // 和前一筆比較，才看得出這次是升是降
+                      previousKg: i == 0 ? null : entries[i - 1].weightKg,
                     ),
+                  ],
                 ],
               ),
             ),
@@ -112,8 +106,85 @@ class WeightScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _subtitle(WeightEntry e) {
+/// 單筆體重紀錄：左邊圖示、中間數字與日期、右邊與前一筆的差值。
+class _WeightTile extends ConsumerWidget {
+  final WeightEntry entry;
+  final double? previousKg;
+
+  const _WeightTile({required this.entry, this.previousKg});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final palette = theme.palette;
+    final delta = previousKg == null ? null : entry.weightKg - previousKg!;
+
+    // 體重升降沒有絕對好壞，這裡只用「降＝綠、升＝橘」提供方向感。
+    final deltaColor = delta == null || delta.abs() < 0.05
+        ? palette.uncategorized
+        : (delta < 0 ? palette.success : palette.warning);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      leading: IconBadge(
+        icon: Icons.monitor_weight_outlined,
+        color: palette.carbs,
+      ),
+      title: Text('${entry.weightKg.toStringAsFixed(1)} kg'),
+      subtitle: Text(_subtitle(entry)),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (delta != null)
+            PillLabel(
+              text: _deltaText(delta),
+              color: deltaColor,
+              icon: delta.abs() < 0.05
+                  ? Icons.remove
+                  : (delta < 0
+                      ? Icons.arrow_downward
+                      : Icons.arrow_upward),
+            ),
+          IconButton(
+            tooltip: '刪除',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              Icons.delete_outline,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
+              final repo = ref.read(repositoryProvider);
+              repo.deleteWeight(entry.day);
+              messenger.hideCurrentSnackBar();
+              messenger.showSnackBar(SnackBar(
+                content:
+                    Text('已刪除 ${entry.weightKg.toStringAsFixed(1)} kg 的紀錄'),
+                action: SnackBarAction(
+                  label: '復原',
+                  onPressed: () => repo.upsertWeight(
+                    day: entry.day,
+                    weightKg: entry.weightKg,
+                    bodyFatPct: entry.bodyFatPct,
+                  ),
+                ),
+              ));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _deltaText(double delta) {
+    if (delta.abs() < 0.05) return '持平';
+    return '${delta > 0 ? '+' : '−'}${delta.abs().toStringAsFixed(1)}';
+  }
+
+  static String _subtitle(WeightEntry e) {
     final date = '${e.day.year}/${e.day.month}/${e.day.day}';
     if (e.bodyFatPct == null) return date;
     return '$date ・ 體脂 ${e.bodyFatPct!.toStringAsFixed(1)}%';
@@ -128,29 +199,27 @@ class _SetGoalPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        child: Row(
-          children: [
-            Icon(Icons.flag_outlined, color: theme.hintColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '設定目標體重，這裡就會顯示進度與預估達成時間。',
-                style: theme.textTheme.bodyMedium,
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: Row(
+        children: [
+          IconBadge(icon: Icons.flag_outlined, color: theme.palette.carbs),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              '設定目標體重，這裡就會顯示進度與預估達成時間。',
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => OnboardingScreen(initial: profile),
               ),
             ),
-            TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => OnboardingScreen(initial: profile),
-                ),
-              ),
-              child: const Text('去設定'),
-            ),
-          ],
-        ),
+            child: const Text('去設定'),
+          ),
+        ],
       ),
     );
   }
@@ -177,87 +246,124 @@ class _GoalCard extends StatelessWidget {
             targetKg: p.targetWeightKg,
           );
 
-    return Card(
-      color: theme.colorScheme.secondaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.flag_outlined, size: 20),
-                const SizedBox(width: 8),
-                Text('目標體重', style: theme.textTheme.titleMedium),
-              ],
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      shadow: false,
+      gradient: LinearGradient(
+        colors: theme.palette.weightGradient,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_rounded, size: 20, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                '目標體重',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(color: Colors.white),
+              ),
+              const Spacer(),
+              if (p.reached)
+                const _GlassChip(text: '已達成 🎉')
+              else
+                _GlassChip(
+                  text: '目標 ${p.targetWeightKg.toStringAsFixed(1)} kg',
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            p.reached ? '已達成目標 🎉' : '還差 ${p.remainingAbsKg.toStringAsFixed(1)} 公斤',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 8),
-            Text(
-              '目前 ${p.currentWeightKg.toStringAsFixed(1)} '
-              '→ 目標 ${p.targetWeightKg.toStringAsFixed(1)} kg',
-              style: theme.textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '目前 ${p.currentWeightKg.toStringAsFixed(1)} '
+            '→ 目標 ${p.targetWeightKg.toStringAsFixed(1)} kg',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 14,
+            ),
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 10,
+                color: Colors.white,
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
-              p.reached
-                  ? '已達成目標 🎉'
-                  : '還差 ${p.remainingAbsKg.toStringAsFixed(1)} 公斤',
-              style: theme.textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              '自最早一筆紀錄以來，已完成 ${(progress * 100).round()}%',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 12,
+              ),
             ),
-            if (progress != null) ...[
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 10,
-                  backgroundColor:
-                      theme.colorScheme.onSecondaryContainer.withValues(
-                    alpha: 0.15,
+          ],
+          const SizedBox(height: 14),
+          _GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _etaText(p),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    height: 1.5,
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '自最早一筆紀錄以來，已完成 ${(progress * 100).round()}%',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
-            const SizedBox(height: 12),
-            Text(_etaText(p), style: theme.textTheme.bodyMedium),
-            if (!p.reached && !p.directionMismatch) ...[
-              const SizedBox(height: 6),
-              Text(
-                '＊以「1 公斤 ≒ 7700 大卡」線性估算。實際上體重下降後代謝也會下降，'
-                '真正需要的時間通常比這個久 —— 當作方向參考，不是保證。',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.hintColor),
-              ),
-            ],
-            if (p.warning != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(p.warning!,
-                          style: theme.textTheme.bodySmall),
+                if (!p.reached && !p.directionMismatch) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '＊以「1 公斤 ≒ 7700 大卡」線性估算。實際上體重下降後代謝也會下降，'
+                    '真正需要的時間通常比這個久 —— 當作方向參考，不是保證。',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 11.5,
+                      height: 1.5,
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (p.warning != null) ...[
+            const SizedBox(height: 10),
+            _GlassPanel(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.favorite_outline,
+                      size: 18, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      p.warning!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -281,6 +387,50 @@ class _GoalCard extends StatelessWidget {
   }
 }
 
+/// 漸層卡上的半透明標籤。
+class _GlassChip extends StatelessWidget {
+  final String text;
+  const _GlassChip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+/// 漸層卡上的半透明說明區塊。
+class _GlassPanel extends StatelessWidget {
+  final Widget child;
+  const _GlassPanel({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(AppRadius.field),
+      ),
+      child: child,
+    );
+  }
+}
+
 class _WeightChart extends StatelessWidget {
   final List<WeightEntry> entries;
 
@@ -292,6 +442,7 @@ class _WeightChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = theme.palette;
     final first = entries.first.day;
 
     final spots = [
@@ -306,18 +457,56 @@ class _WeightChart extends StatelessWidget {
     final minW = values.reduce((a, b) => a < b ? a : b);
     final maxW = values.reduce((a, b) => a > b ? a : b);
     final pad = ((maxW - minW) * 0.25).clamp(1.0, 5.0);
+    final line = palette.carbs;
 
     return LineChart(
       LineChartData(
         minY: minW - pad,
         maxY: maxW + pad,
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => theme.colorScheme.inverseSurface,
+            getTooltipItems: (spots) => [
+              for (final s in spots)
+                LineTooltipItem(
+                  '${s.y.toStringAsFixed(1)} kg',
+                  TextStyle(
+                    color: theme.colorScheme.onInverseSurface,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+        ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: theme.colorScheme.primary,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
+            curveSmoothness: 0.25,
+            color: line,
+            barWidth: 3.5,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+                radius: 3.5,
+                color: palette.surface,
+                strokeWidth: 2.5,
+                strokeColor: line,
+              ),
+            ),
+            // 線下淡淡的漸層，看起來比一條光禿禿的折線有份量
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  line.withValues(alpha: 0.28),
+                  line.withValues(alpha: 0.02),
+                ],
+              ),
+            ),
           ),
         ],
         extraLinesData: ExtraLinesData(
@@ -325,7 +514,7 @@ class _WeightChart extends StatelessWidget {
             if (targetKg != null)
               HorizontalLine(
                 y: targetKg!,
-                color: theme.colorScheme.tertiary,
+                color: palette.success,
                 strokeWidth: 2,
                 dashArray: [6, 4],
               ),
@@ -338,7 +527,10 @@ class _WeightChart extends StatelessWidget {
               reservedSize: 40,
               getTitlesWidget: (value, meta) => Text(
                 value.toStringAsFixed(0),
-                style: const TextStyle(fontSize: 10),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -349,9 +541,14 @@ class _WeightChart extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                 final d = first.add(Duration(days: value.toInt()));
                 return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child:
-                      Text('${d.month}/${d.day}', style: const TextStyle(fontSize: 10)),
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${d.month}/${d.day}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 );
               },
             ),
@@ -361,7 +558,14 @@ class _WeightChart extends StatelessWidget {
           topTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: const FlGridData(show: true),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            strokeWidth: 1,
+          ),
+        ),
         borderData: FlBorderData(show: false),
       ),
     );

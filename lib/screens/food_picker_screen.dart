@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/database.dart';
 import '../data/food_library.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 
 /// 挑選結果：回傳給新增餐點頁自動帶入欄位。
 ///
@@ -79,19 +81,25 @@ class _FoodPickerScreenState extends ConsumerState<FoodPickerScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
             child: TextField(
               controller: _query,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '搜尋食物，例如：便當、珍珠',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: '清除',
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => setState(_query.clear),
+                      ),
               ),
             ),
           ),
           SizedBox(
-            height: 48,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -101,6 +109,7 @@ class _FoodPickerScreenState extends ConsumerState<FoodPickerScreen> {
                   child: FilterChip(
                     label: const Text('全部'),
                     selected: _category == null,
+                    showCheckmark: false,
                     onSelected: (_) => setState(() => _category = null),
                   ),
                 ),
@@ -108,8 +117,14 @@ class _FoodPickerScreenState extends ConsumerState<FoodPickerScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: FilterChip(
+                      avatar: Icon(
+                        foodCategoryIcon(c),
+                        size: 16,
+                        color: _categoryColor(context, c),
+                      ),
                       label: Text(foodCategoryLabel(c)),
                       selected: _category == c,
+                      showCheckmark: false,
                       onSelected: (_) => setState(() => _category = c),
                     ),
                   ),
@@ -118,71 +133,145 @@ class _FoodPickerScreenState extends ConsumerState<FoodPickerScreen> {
           ),
           Expanded(
             child: (recent.isEmpty && results.isEmpty)
-                ? Center(
-                    child: Text('找不到符合的食物，可以直接手動輸入。',
-                        style: TextStyle(color: theme.hintColor)),
+                ? const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    child: EmptyState(
+                      icon: Icons.search_off,
+                      message: '找不到符合的食物，\n可以回上一頁直接手動輸入。',
+                    ),
                   )
                 : ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
                     children: [
                       if (recent.isNotEmpty) ...[
-                        _sectionHeader(theme, Icons.history, '最近吃過'),
+                        SectionHeader(
+                          icon: Icons.history,
+                          title: '最近吃過',
+                          color: theme.colorScheme.primary,
+                          subtitle: '自己記過的數值，比通用估算更貼近實際',
+                        ),
                         for (final m in recent)
-                          ListTile(
-                            leading: Icon(Icons.history,
-                                color: theme.colorScheme.primary),
-                            title: Text(m.name),
-                            subtitle: Text(_recentSubtitle(m)),
-                            trailing: Text('${m.calories.round()} 大卡'),
-                            onTap: () => Navigator.of(context)
-                                .pop(PickedFood.fromMeal(m)),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _PickCard(
+                              icon: Icons.history,
+                              color: theme.colorScheme.primary,
+                              name: m.name,
+                              detail: _recentSubtitle(m),
+                              calories: m.calories,
+                              onTap: () => Navigator.of(context)
+                                  .pop(PickedFood.fromMeal(m)),
+                            ),
                           ),
-                        const Divider(height: 24),
-                        _sectionHeader(theme, Icons.menu_book_outlined, '食物庫'),
+                        const SizedBox(height: 12),
+                        SectionHeader(
+                          icon: Icons.menu_book_outlined,
+                          title: '食物庫',
+                          color: theme.palette.carbs,
+                        ),
                       ],
                       for (final f in results)
-                        ListTile(
-                          title: Text(f.name),
-                          subtitle: Text(
-                            '${f.serving} ・ 蛋白 ${f.proteinG.round()} / 脂 ${f.fatG.round()} / 碳 ${f.carbsG.round()} g',
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _PickCard(
+                            icon: foodCategoryIcon(f.category),
+                            color: _categoryColor(context, f.category),
+                            name: f.name,
+                            detail:
+                                '${f.serving} ・ 蛋白 ${f.proteinG.round()} / 脂 ${f.fatG.round()} / 碳 ${f.carbsG.round()} g',
+                            calories: f.calories,
+                            onTap: () => Navigator.of(context)
+                                .pop(PickedFood.fromLibrary(f)),
                           ),
-                          trailing: Text('${f.calories.round()} 大卡'),
-                          onTap: () => Navigator.of(context)
-                              .pop(PickedFood.fromLibrary(f)),
                         ),
                     ],
                   ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              '＊食物庫數值為常見份量的估算值，會因店家與份量而異；選取後仍可自行修改。',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-              textAlign: TextAlign.center,
-            ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 6, 16, 14),
+            child: FootNote(
+                '＊食物庫數值為常見份量的估算值，會因店家與份量而異；選取後仍可自行修改。'),
           ),
         ],
       ),
     );
   }
 
-  Widget _sectionHeader(ThemeData theme, IconData icon, String title) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: theme.colorScheme.primary),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      );
-
   String _recentSubtitle(MealEntry m) =>
       '上次 ${m.eatenAt.month}/${m.eatenAt.day} ・ '
       '蛋白 ${m.proteinG.round()} / 脂 ${m.fatG.round()} / 碳 ${m.carbsG.round()} g';
+}
+
+/// 可挑選的一列食物（最近吃過與食物庫共用同一種卡片）。
+class _PickCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String name;
+  final String detail;
+  final double calories;
+  final VoidCallback onTap;
+
+  const _PickCard({
+    required this.icon,
+    required this.color,
+    required this.name,
+    required this.detail,
+    required this.calories,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: onTap,
+      child: Row(
+        children: [
+          IconBadge(icon: icon, color: color, size: 40),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: theme.textTheme.titleSmall),
+                const SizedBox(height: 3),
+                Text(
+                  detail,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          PillLabel(text: '${calories.round()} 大卡', color: color),
+        ],
+      ),
+    );
+  }
+}
+
+/// 食物分類的圖示。
+IconData foodCategoryIcon(FoodCategory c) => switch (c) {
+      FoodCategory.rice => Icons.rice_bowl_outlined,
+      FoodCategory.noodle => Icons.ramen_dining_outlined,
+      FoodCategory.snack => Icons.lunch_dining_outlined,
+      FoodCategory.breakfast => Icons.free_breakfast_outlined,
+      FoodCategory.drink => Icons.local_cafe_outlined,
+      FoodCategory.dessert => Icons.icecream_outlined,
+      FoodCategory.store => Icons.storefront_outlined,
+    };
+
+Color _categoryColor(BuildContext context, FoodCategory c) {
+  final palette = Theme.of(context).palette;
+  return switch (c) {
+    FoodCategory.rice => palette.fat,
+    FoodCategory.noodle => palette.warning,
+    FoodCategory.snack => palette.protein,
+    FoodCategory.breakfast => palette.success,
+    FoodCategory.drink => palette.carbs,
+    FoodCategory.dessert => palette.dinner,
+    FoodCategory.store => palette.uncategorized,
+  };
 }

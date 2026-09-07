@@ -8,6 +8,8 @@ import '../domain/nutrition.dart';
 import '../domain/stats.dart';
 import '../labels.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 
 /// 統計：近 7 / 30 天的每日熱量長條圖與摘要。
 /// 呼應衛教觀念——看「週趨勢」，而不是被單日數字綁架。
@@ -24,6 +26,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = theme.palette;
     final profile = ref.watch(profileProvider).value;
     if (profile == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -66,7 +69,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('統計')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
           Center(
             child: SegmentedButton<int>(
@@ -78,28 +81,30 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               onSelectionChanged: (s) => setState(() => _days = s.first),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
           // === 摘要數字 ===
           Row(
             children: [
               Expanded(
-                child: _statCard(
-                  theme,
-                  '平均每日攝取',
-                  summary.daysWithRecords == 0
+                child: StatTile(
+                  icon: Icons.local_fire_department_outlined,
+                  color: theme.colorScheme.primary,
+                  label: '平均每日攝取',
+                  value: summary.daysWithRecords == 0
                       ? '—'
                       : '${summary.averageCalories.round()}',
-                  '大卡（目標 ${plan.calorieTarget.round()}）',
+                  unit: '大卡（目標 ${plan.calorieTarget.round()}）',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _statCard(
-                  theme,
-                  '有記錄天數',
-                  '${summary.daysWithRecords}',
-                  '／ $_days 天',
+                child: StatTile(
+                  icon: Icons.edit_calendar_outlined,
+                  color: palette.carbs,
+                  label: '有記錄天數',
+                  value: '${summary.daysWithRecords}',
+                  unit: '／ $_days 天',
                 ),
               ),
             ],
@@ -108,104 +113,69 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           Row(
             children: [
               Expanded(
-                child: _statCard(
-                  theme,
-                  '達標天數',
-                  '${summary.daysOnTarget}',
-                  '天（目標 ±10% 內）',
+                child: StatTile(
+                  icon: Icons.verified_outlined,
+                  color: palette.success,
+                  label: '達標天數',
+                  value: '${summary.daysOnTarget}',
+                  unit: '天（目標 ±10% 內）',
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(child: _weightCard(theme, summary)),
+              Expanded(child: _weightTile(summary)),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 22),
 
           // === 每日熱量長條圖 ===
-          Text('每日熱量', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            '虛線為你的每日目標；超過目標的日子會標成紅色。',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+          const SectionHeader(
+            icon: Icons.bar_chart_rounded,
+            title: '每日熱量',
+            subtitle: '虛線為你的每日目標；超過目標的日子會標成紅色。',
           ),
-          const SizedBox(height: 12),
           if (summary.daysWithRecords == 0)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Text(
-                    '這段期間還沒有餐點紀錄。\n到「今日」分頁記錄幾筆，這裡就會出現趨勢。',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.hintColor),
-                  ),
-                ),
-              ),
+            const EmptyState(
+              icon: Icons.insights_outlined,
+              message: '這段期間還沒有餐點紀錄。\n到「今日」分頁記錄幾筆，這裡就會出現趨勢。',
             )
           else
-            SizedBox(
-              height: 220,
-              child: _CalorieBarChart(
-                summary: summary,
-                target: plan.calorieTarget,
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
+              child: SizedBox(
+                height: 210,
+                child: _CalorieBarChart(
+                  summary: summary,
+                  target: plan.calorieTarget,
+                ),
               ),
             ),
 
           // === 各餐別分佈 ===
           if (byType.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Text('各餐別熱量分佈', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              _topMealTypeLine(byType, totalCalories),
-              style:
-                  theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            SectionHeader(
+              icon: Icons.pie_chart_outline,
+              title: '各餐別熱量分佈',
+              color: palette.breakfast,
+              subtitle: _topMealTypeLine(byType, totalCalories),
             ),
-            const SizedBox(height: 12),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Column(
-                  children: [
-                    for (final e in byType)
-                      _mealTypeRow(theme, e.$1, e.$2, totalCalories),
-                  ],
-                ),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                children: [
+                  for (final e in byType)
+                    _mealTypeRow(theme, e.$1, e.$2, totalCalories),
+                ],
               ),
             ),
           ],
 
-          const SizedBox(height: 16),
-          Text(
-            '＊平均值只計算「有記錄」的日子，避免忘記記錄的日子把數字拉低。',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-            textAlign: TextAlign.center,
-          ),
+          const SizedBox(height: 20),
+          const FootNote('＊平均值只計算「有記錄」的日子，避免忘記記錄的日子把數字拉低。'),
         ],
       ),
     );
   }
-
-  Widget _statCard(ThemeData theme, String label, String value, String unit) =>
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.hintColor)),
-              const SizedBox(height: 6),
-              Text(value,
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(unit, style: theme.textTheme.bodySmall),
-            ],
-          ),
-        ),
-      );
 
   /// 「吃最多的是哪一餐」。未分類不列入比較（那不是一餐，是還沒標的舊資料）。
   String _topMealTypeLine(
@@ -224,38 +194,34 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   Widget _mealTypeRow(
       ThemeData theme, MealType? type, double kcal, double total) {
     final ratio = total <= 0 ? 0.0 : (kcal / total).clamp(0.0, 1.0);
+    final color = theme.palette.mealColor(type);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(mealTypeLabel(type)),
-              Text('${kcal.round()} 大卡 ・ ${(ratio * 100).round()}%'),
+              Icon(mealTypeIcon(type), size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(mealTypeLabel(type), style: theme.textTheme.bodyMedium),
+              const Spacer(),
+              Text(
+                '${kcal.round()} 大卡 ・ ${(ratio * 100).round()}%',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
             ],
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 10,
-              backgroundColor:
-                  theme.colorScheme.primary.withValues(alpha: 0.12),
-              // 未分類用灰色，視覺上和真正的餐別區隔開
-              color: type == null
-                  ? theme.colorScheme.outline
-                  : theme.colorScheme.primary,
-            ),
-          ),
+          const SizedBox(height: 6),
+          GradientBar(value: ratio, color: color),
         ],
       ),
     );
   }
 
-  Widget _weightCard(ThemeData theme, PeriodSummary summary) {
+  Widget _weightTile(PeriodSummary summary) {
+    final palette = Theme.of(context).palette;
     final change = summary.weightChangeKg;
     final String value;
     final String unit;
@@ -268,7 +234,13 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
       unit =
           'kg（${summary.weightStartKg!.toStringAsFixed(1)} → ${summary.weightEndKg!.toStringAsFixed(1)}）';
     }
-    return _statCard(theme, '體重變化', value, unit);
+    return StatTile(
+      icon: Icons.monitor_weight_outlined,
+      color: change != null && change > 0 ? palette.warning : palette.success,
+      label: '體重變化',
+      value: value,
+      unit: unit,
+    );
   }
 }
 
@@ -282,7 +254,8 @@ class _CalorieBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final maxValue = [summary.maxCalories, target].reduce((a, b) => a > b ? a : b);
+    final maxValue =
+        [summary.maxCalories, target].reduce((a, b) => a > b ? a : b);
     final maxY = maxValue <= 0 ? 100.0 : maxValue * 1.25;
     final count = summary.days.length;
     final labelStep = count <= 7 ? 1 : 5;
@@ -290,6 +263,22 @@ class _CalorieBarChart extends StatelessWidget {
     return BarChart(
       BarChartData(
         maxY: maxY,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) => theme.colorScheme.inverseSurface,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final d = summary.days[group.x].day;
+              return BarTooltipItem(
+                '${d.month}/${d.day}\n${rod.toY.round()} 大卡',
+                TextStyle(
+                  color: theme.colorScheme.onInverseSurface,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              );
+            },
+          ),
+        ),
         barGroups: [
           for (var i = 0; i < count; i++)
             BarChartGroupData(
@@ -297,11 +286,22 @@ class _CalorieBarChart extends StatelessWidget {
               barRods: [
                 BarChartRodData(
                   toY: summary.days[i].calories,
-                  color: summary.days[i].calories > target
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.primary,
-                  width: count <= 7 ? 22 : 7,
-                  borderRadius: BorderRadius.circular(3),
+                  // 由下往上的漸層，比單色長條有精神
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: summary.days[i].calories > target
+                        ? [
+                            theme.colorScheme.error.withValues(alpha: 0.55),
+                            theme.colorScheme.error,
+                          ]
+                        : [
+                            theme.colorScheme.primary.withValues(alpha: 0.55),
+                            theme.colorScheme.primary,
+                          ],
+                  ),
+                  width: count <= 7 ? 20 : 7,
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ],
             ),
@@ -310,8 +310,8 @@ class _CalorieBarChart extends StatelessWidget {
           horizontalLines: [
             HorizontalLine(
               y: target,
-              color: theme.colorScheme.outline,
-              strokeWidth: 2,
+              color: theme.colorScheme.onSurfaceVariant,
+              strokeWidth: 1.5,
               dashArray: [6, 4],
             ),
           ],
@@ -323,7 +323,10 @@ class _CalorieBarChart extends StatelessWidget {
               reservedSize: 44,
               getTitlesWidget: (value, meta) => Text(
                 value.toInt().toString(),
-                style: const TextStyle(fontSize: 10),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
@@ -338,9 +341,14 @@ class _CalorieBarChart extends StatelessWidget {
                 }
                 final d = summary.days[i].day;
                 return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text('${d.month}/${d.day}',
-                      style: const TextStyle(fontSize: 10)),
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    '${d.month}/${d.day}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 );
               },
             ),
@@ -350,7 +358,14 @@ class _CalorieBarChart extends StatelessWidget {
           topTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            strokeWidth: 1,
+          ),
+        ),
         borderData: FlBorderData(show: false),
       ),
     );

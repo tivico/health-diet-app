@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/nutrition.dart';
 import '../labels.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 import 'advice_screen.dart';
 
 /// 引導設定 / 編輯資料：輸入基本資料 → 存進本地資料庫。
@@ -113,116 +115,194 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = theme.palette;
     final isEditing = widget.initial != null;
+
     return Scaffold(
       appBar: AppBar(title: Text(isEditing ? '編輯個人資料' : '建立你的個人資料')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            const Text(
-              '告訴我們一些基本資料，計算你的每日熱量與營養目標。',
-              style: TextStyle(fontSize: 15),
+            // 首次進來先給一段歡迎詞，說明為什麼要填這些資料
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+              shadow: false,
+              gradient: LinearGradient(
+                colors: palette.heroGradient,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.eco_outlined,
+                        color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Text(
+                      '告訴我們一些基本資料，計算你的每日熱量與營養目標。',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.5,
+                        height: 1.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
-            _label('性別'),
-            SegmentedButton<Sex>(
-              segments: const [
-                ButtonSegment(value: Sex.female, label: Text('女')),
-                ButtonSegment(value: Sex.male, label: Text('男')),
-              ],
-              selected: {_sex},
-              onSelectionChanged: (s) => setState(() => _sex = s.first),
+
+            // === 基本資料 ===
+            SectionHeader(
+              icon: Icons.badge_outlined,
+              title: '基本資料',
+              color: palette.carbs,
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _age,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '年齡',
-                hintText: '例如 28',
-                suffixText: '歲',
-                border: OutlineInputBorder(),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label(theme, '性別'),
+                  SegmentedButton<Sex>(
+                    segments: const [
+                      ButtonSegment(
+                        value: Sex.female,
+                        label: Text('女'),
+                        icon: Icon(Icons.female, size: 18),
+                      ),
+                      ButtonSegment(
+                        value: Sex.male,
+                        label: Text('男'),
+                        icon: Icon(Icons.male, size: 18),
+                      ),
+                    ],
+                    showSelectedIcon: false,
+                    selected: {_sex},
+                    onSelectionChanged: (s) => setState(() => _sex = s.first),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
+                    controller: _age,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '年齡',
+                      hintText: '例如 28',
+                      suffixText: '歲',
+                      prefixIcon: Icon(Icons.cake_outlined),
+                    ),
+                    validator: (v) =>
+                        _validateNumber(v, label: '年齡', min: 1, max: 120),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _height,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '身高',
+                      hintText: '例如 165',
+                      suffixText: 'cm',
+                      prefixIcon: Icon(Icons.straighten),
+                    ),
+                    validator: (v) =>
+                        _validateNumber(v, label: '身高', min: 50, max: 250),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _weight,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '體重',
+                      hintText: '例如 65',
+                      suffixText: 'kg',
+                      prefixIcon: Icon(Icons.monitor_weight_outlined),
+                    ),
+                    validator: (v) =>
+                        _validateNumber(v, label: '體重', min: 20, max: 400),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _bodyFat,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '體脂率（選填）',
+                      hintText: '例如 25，不知道可留白',
+                      suffixText: '%',
+                      helperText: '有填的話會用更準的公式計算',
+                      prefixIcon: Icon(Icons.percent),
+                    ),
+                    validator: (v) => _validateNumber(v,
+                        label: '體脂率', min: 1, max: 74, required: false),
+                  ),
+                ],
               ),
-              validator: (v) =>
-                  _validateNumber(v, label: '年齡', min: 1, max: 120),
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _height,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '身高',
-                hintText: '例如 165',
-                suffixText: 'cm',
-                border: OutlineInputBorder(),
+            const SizedBox(height: 20),
+
+            // === 目標設定 ===
+            SectionHeader(
+              icon: Icons.flag_outlined,
+              title: '你的目標',
+              color: theme.colorScheme.primary,
+            ),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _label(theme, '活動量'),
+                  DropdownButtonFormField<ActivityLevel>(
+                    initialValue: _activity,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.directions_walk),
+                    ),
+                    items: ActivityLevel.values
+                        .map((a) => DropdownMenuItem(
+                            value: a, child: Text(activityLabel(a))))
+                        .toList(),
+                    onChanged: (a) => setState(() => _activity = a ?? _activity),
+                  ),
+                  const SizedBox(height: 18),
+                  _label(theme, '目標'),
+                  SegmentedButton<Goal>(
+                    // 三個選項要塞進手機寬度，關掉勾選圖示才不會擠掉文字
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: Goal.lose, label: Text('減脂')),
+                      ButtonSegment(value: Goal.maintain, label: Text('維持')),
+                      ButtonSegment(value: Goal.gain, label: Text('增肌')),
+                    ],
+                    selected: {_goal},
+                    onSelectionChanged: (s) => setState(() => _goal = s.first),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
+                    controller: _targetWeight,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '目標體重（選填）',
+                      hintText: '例如 58，還沒想好可留白',
+                      suffixText: 'kg',
+                      helperText: '填了會在「體重」分頁顯示進度與預估達成時間',
+                      prefixIcon: Icon(Icons.emoji_events_outlined),
+                    ),
+                    validator: (v) => _validateNumber(v,
+                        label: '目標體重', min: 20, max: 400, required: false),
+                  ),
+                ],
               ),
-              validator: (v) =>
-                  _validateNumber(v, label: '身高', min: 50, max: 250),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _weight,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '體重',
-                hintText: '例如 65',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) =>
-                  _validateNumber(v, label: '體重', min: 20, max: 400),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _bodyFat,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '體脂率（選填）',
-                hintText: '例如 25，不知道可留白',
-                suffixText: '%',
-                helperText: '有填的話會用更準的公式計算',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) => _validateNumber(v,
-                  label: '體脂率', min: 1, max: 74, required: false),
-            ),
-            const SizedBox(height: 16),
-            _label('活動量'),
-            DropdownButtonFormField<ActivityLevel>(
-              initialValue: _activity,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: ActivityLevel.values
-                  .map((a) =>
-                      DropdownMenuItem(value: a, child: Text(activityLabel(a))))
-                  .toList(),
-              onChanged: (a) => setState(() => _activity = a ?? _activity),
-            ),
-            const SizedBox(height: 16),
-            _label('目標'),
-            SegmentedButton<Goal>(
-              segments: const [
-                ButtonSegment(value: Goal.lose, label: Text('減脂')),
-                ButtonSegment(value: Goal.maintain, label: Text('維持')),
-                ButtonSegment(value: Goal.gain, label: Text('增肌')),
-              ],
-              selected: {_goal},
-              onSelectionChanged: (s) => setState(() => _goal = s.first),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _targetWeight,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '目標體重（選填）',
-                hintText: '例如 58，還沒想好可留白',
-                suffixText: 'kg',
-                helperText: '填了會在「體重」分頁顯示進度與預估達成時間',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) => _validateNumber(v,
-                  label: '目標體重', min: 20, max: 400, required: false),
             ),
             const SizedBox(height: 28),
             FilledButton(
@@ -245,8 +325,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
-  Widget _label(String text) => Padding(
+  Widget _label(ThemeData theme, String text) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
-        child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+        child: Text(text, style: theme.textTheme.titleSmall),
       );
 }

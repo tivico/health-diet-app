@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/health_repository.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 
 /// 備份與還原：匯出所有資料成文字（複製保存）、貼上文字還原。
 /// 另外可匯出 CSV 給試算表檢視（單向，不能用來還原）。
@@ -91,111 +93,148 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('備份與還原')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Text('匯出備份',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('產生一段文字，複製後貼到記事本 / 雲端 / 訊息裡保存。',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.hintColor)),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _busy
-                ? null
-                : () => _generate('備份（JSON）', (repo) => repo.exportJson()),
-            icon: const Icon(Icons.download_outlined),
-            label: const Text('產生備份'),
+          const SectionHeader(
+            icon: Icons.cloud_download_outlined,
+            title: '匯出備份',
+            subtitle: '產生一段文字，複製後貼到記事本 / 雲端 / 訊息裡保存。',
           ),
-          const SizedBox(height: 24),
-          Text('匯出試算表（CSV）',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(
-            '給 Excel / Google 試算表看的格式。'
-            '貼上後若擠在同一欄，用試算表的「資料剖析 / 分隔成不同欄」以逗號分隔即可。',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-          ),
-          const SizedBox(height: 4),
-          Text('⚠️ CSV 只能拿來看，不能用來還原 —— 要備份請用上面的「產生備份」。',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _generate(
-                          '餐點 CSV', (repo) => repo.exportMealsCsv()),
-                  icon: const Icon(Icons.table_chart_outlined),
-                  label: const Text('餐點 CSV'),
+          SoftCard(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () =>
+                            _generate('備份（JSON）', (repo) => repo.exportJson()),
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: const Text('產生備份'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _generate(
-                          '體重 CSV', (repo) => repo.exportWeightsCsv()),
-                  icon: const Icon(Icons.monitor_weight_outlined),
-                  label: const Text('體重 CSV'),
+                const SizedBox(height: 20),
+                Text('匯出試算表（CSV）', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 4),
+                Text(
+                  '給 Excel / Google 試算表看的格式。'
+                  '貼上後若擠在同一欄，用試算表的「資料剖析 / 分隔成不同欄」以逗號分隔即可。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                InfoNote(
+                  icon: Icons.warning_amber_rounded,
+                  color: theme.palette.warning,
+                  text: 'CSV 只能拿來看，不能用來還原 —— 要備份請用上面的「產生備份」。',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _generate(
+                                '餐點 CSV', (repo) => repo.exportMealsCsv()),
+                        icon: const Icon(Icons.table_chart_outlined, size: 18),
+                        label: const Text('餐點 CSV'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy
+                            ? null
+                            : () => _generate(
+                                '體重 CSV', (repo) => repo.exportWeightsCsv()),
+                        icon:
+                            const Icon(Icons.monitor_weight_outlined, size: 18),
+                        label: const Text('體重 CSV'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           if (_exported != null) ...[
-            const SizedBox(height: 16),
-            Text('目前顯示：${_exportedName ?? ''}',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(maxHeight: 200),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: 12),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.description_outlined,
+                          size: 18, color: theme.colorScheme.primary),
+                      const SizedBox(width: 6),
+                      Text('目前顯示：${_exportedName ?? ''}',
+                          style: theme.textTheme.titleSmall),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(AppRadius.field),
+                    ),
+                    child: SingleChildScrollView(
+                      child: SelectableText(_exported!,
+                          style: const TextStyle(fontSize: 12, height: 1.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _copy,
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: const Text('複製到剪貼簿'),
+                    ),
+                  ),
+                ],
               ),
-              child: SingleChildScrollView(
-                child: SelectableText(_exported!,
-                    style: const TextStyle(fontSize: 12)),
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _copy,
-              icon: const Icon(Icons.copy),
-              label: const Text('複製到剪貼簿'),
             ),
           ],
-          const Divider(height: 40),
-          Text('還原備份',
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text('貼上先前匯出的備份文字，還原資料（會覆蓋現有資料）。',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.hintColor)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _importCtrl,
-            maxLines: 6,
-            decoration: const InputDecoration(
-              hintText: '在這裡貼上備份文字…',
-              border: OutlineInputBorder(),
-            ),
+          const SizedBox(height: 26),
+          SectionHeader(
+            icon: Icons.restore,
+            title: '還原備份',
+            color: theme.palette.warning,
+            subtitle: '貼上先前匯出的備份文字，還原資料（會覆蓋現有資料）。',
           ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _busy ? null : _import,
-            icon: const Icon(Icons.upload_outlined),
-            label: const Text('還原'),
+          SoftCard(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _importCtrl,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    hintText: '在這裡貼上備份文字…',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : _import,
+                    icon: const Icon(Icons.upload_outlined, size: 18),
+                    label: const Text('還原'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

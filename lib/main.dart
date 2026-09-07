@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers.dart';
 import 'screens/home_shell.dart';
 import 'screens/onboarding_screen.dart';
+import 'theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: HealthApp()));
@@ -13,31 +14,14 @@ void main() {
 class HealthApp extends StatelessWidget {
   const HealthApp({super.key});
 
-  /// 主題種子色（淺色 / 深色共用同一個品牌色）。
-  static const _seed = Color(0xFF2E7D5B);
-
-  /// 依亮/暗色產生主題。
-  /// 表單欄位統一設定成「灰底」，全 App 風格一致（不必每個欄位各自設定）。
-  static ThemeData _themeFor(Brightness brightness) {
-    final scheme =
-        ColorScheme.fromSeed(seedColor: _seed, brightness: brightness);
-    return ThemeData(
-      colorScheme: scheme,
-      useMaterial3: true,
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: scheme.surfaceContainerHighest,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '健康飲控',
       debugShowCheckedModeBanner: false,
-      theme: _themeFor(Brightness.light),
-      darkTheme: _themeFor(Brightness.dark),
+      // 配色與元件樣式集中在 lib/theme.dart
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system, // 跟隨系統深/淺色
       // 介面文字（含日期選擇器等系統元件）使用繁體中文。
       locale: const Locale('zh', 'TW'),

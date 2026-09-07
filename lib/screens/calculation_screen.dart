@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../domain/nutrition.dart';
 import '../domain/recommendations.dart';
 import '../domain/weight_goal.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 
 /// 計算方式說明：把每個數字的公式帶入使用者的實際資料，透明呈現。
 class CalculationScreen extends StatelessWidget {
@@ -95,29 +97,35 @@ class CalculationScreen extends StatelessWidget {
         '台灣分級：過輕 <18.5、健康 18.5–24、過重 24–27、肥胖 ≥27\n'
         '→ 你是「${plan.bmiCategory}」';
 
+    final palette = theme.palette;
+
     return Scaffold(
       appBar: AppBar(title: const Text('計算方式')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
-          Text('這些數字是怎麼算出來的（帶入你的資料）：',
-              style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 12),
-          _card(theme, 'BMR（基礎代謝率）', bmr, '一天什麼都不做也會消耗的熱量'),
-          _card(theme, 'TDEE（每日總消耗）', tdee, 'BMR 再乘上你的活動量'),
-          _card(theme, '每日熱量目標', target, '依你的目標調整，並設有安全下限'),
-          if (goalText != null)
-            _card(theme, '目標體重達成時間', goalText,
-                '線性估算；體重下降後代謝也會下降，實際通常更久'),
-          _card(theme, '三大營養素', macros, null),
-          _card(theme, '每日飲水量', waterText, '粗略參考值，運動或天熱可再增加'),
-          _card(theme, 'BMI（身體質量指數）', bmi, null),
-          const SizedBox(height: 8),
-          Text(
-            '＊以上為常見的估算公式，個體差異大，數字僅供參考。',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
-            textAlign: TextAlign.center,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+            child: Text('這些數字是怎麼算出來的（帶入你的資料）：',
+                style: theme.textTheme.bodyMedium),
           ),
+          _card(context, Icons.bolt_outlined, palette.warning,
+              'BMR（基礎代謝率）', bmr, '一天什麼都不做也會消耗的熱量'),
+          _card(context, Icons.directions_run, palette.success,
+              'TDEE（每日總消耗）', tdee, 'BMR 再乘上你的活動量'),
+          _card(context, Icons.local_fire_department_outlined,
+              theme.colorScheme.primary, '每日熱量目標', target, '依你的目標調整，並設有安全下限'),
+          if (goalText != null)
+            _card(context, Icons.flag_outlined, palette.carbs, '目標體重達成時間',
+                goalText, '線性估算；體重下降後代謝也會下降，實際通常更久'),
+          _card(context, Icons.donut_small, palette.protein, '三大營養素', macros,
+              null),
+          _card(context, Icons.water_drop_outlined, palette.carbs, '每日飲水量',
+              waterText, '粗略參考值，運動或天熱可再增加'),
+          _card(context, Icons.accessibility_new, palette.dinner,
+              'BMI（身體質量指數）', bmi, null),
+          const SizedBox(height: 12),
+          const FootNote('＊以上為常見的估算公式，個體差異大，數字僅供參考。'),
         ],
       ),
     );
@@ -125,35 +133,51 @@ class CalculationScreen extends StatelessWidget {
 
   String _n(double v) => v.toStringAsFixed(0);
 
-  Widget _card(ThemeData theme, String title, String formula, String? note) =>
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              if (note != null) ...[
-                const SizedBox(height: 2),
-                Text(note,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.hintColor)),
-              ],
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
+  Widget _card(BuildContext context, IconData icon, Color color, String title,
+      String formula, String? note) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SoftCard(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconBadge(icon: icon, color: color, size: 34),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: theme.textTheme.titleMedium),
+                      if (note != null)
+                        Text(note,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant)),
+                    ],
+                  ),
                 ),
-                child: SelectableText(formula,
-                    style: const TextStyle(height: 1.5)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                // 公式區塊用分類色的淡底，和說明文字分開
+                color: color.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(AppRadius.field),
               ),
-            ],
-          ),
+              child: SelectableText(
+                formula,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.7),
+              ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }

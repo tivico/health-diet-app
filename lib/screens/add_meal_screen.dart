@@ -5,6 +5,8 @@ import '../data/database.dart';
 import '../domain/meal_type.dart';
 import '../labels.dart';
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 import 'food_picker_screen.dart';
 
 /// 新增或編輯一筆餐點：名稱 + 熱量（必填），三大營養素（選填）。
@@ -111,72 +113,100 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = theme.palette;
     final isEditing = widget.initial != null;
+
     return Scaffold(
       appBar: AppBar(title: Text(isEditing ? '編輯餐點' : '新增餐點')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            OutlinedButton.icon(
-              onPressed: _pickFromLibrary,
-              icon: const Icon(Icons.search),
-              label: const Text('最近吃過 / 食物庫'),
-            ),
-            const SizedBox(height: 20),
-            const Text('餐別', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            SegmentedButton<MealType>(
-              // 4 個選項要塞進手機寬度，關掉勾選圖示避免文字被擠掉
-              showSelectedIcon: false,
-              segments: [
-                for (final t in MealType.values)
-                  ButtonSegment(value: t, label: Text(mealTypeLabel(t))),
-              ],
-              selected: {_mealType},
-              onSelectionChanged: (s) => setState(() => _mealType = s.first),
-            ),
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _name,
-              decoration: const InputDecoration(
-                labelText: '餐點名稱',
-                hintText: '例如：雞腿便當',
-                border: OutlineInputBorder(),
+            // 大部分時候都是吃過的東西，快選放最上面
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _pickFromLibrary,
+                icon: const Icon(Icons.search, size: 18),
+                label: const Text('最近吃過 / 食物庫'),
               ),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '請輸入餐點名稱' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _calories,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '熱量',
-                suffixText: '大卡',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) {
-                final t = v?.trim() ?? '';
-                if (t.isEmpty) return '請輸入熱量';
-                final n = double.tryParse(t);
-                if (n == null || n < 0) return '熱量需為非負數字';
-                return null;
-              },
             ),
             const SizedBox(height: 20),
-            const Text('三大營養素（選填，公克）',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: _macroField(_protein, '蛋白質')),
-                const SizedBox(width: 8),
-                Expanded(child: _macroField(_fat, '脂肪')),
-                const SizedBox(width: 8),
-                Expanded(child: _macroField(_carbs, '碳水')),
-              ],
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(mealTypeIcon(_mealType),
+                          size: 18, color: palette.mealColor(_mealType)),
+                      const SizedBox(width: 6),
+                      Text('餐別', style: theme.textTheme.titleSmall),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<MealType>(
+                    // 4 個選項要塞進手機寬度，關掉勾選圖示避免文字被擠掉
+                    showSelectedIcon: false,
+                    segments: [
+                      for (final t in MealType.values)
+                        ButtonSegment(value: t, label: Text(mealTypeLabel(t))),
+                    ],
+                    selected: {_mealType},
+                    onSelectionChanged: (s) =>
+                        setState(() => _mealType = s.first),
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _name,
+                    decoration: const InputDecoration(
+                      labelText: '餐點名稱',
+                      hintText: '例如：雞腿便當',
+                      prefixIcon: Icon(Icons.restaurant_outlined),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '請輸入餐點名稱' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _calories,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '熱量',
+                      suffixText: '大卡',
+                      prefixIcon: Icon(Icons.local_fire_department_outlined),
+                    ),
+                    validator: (v) {
+                      final t = v?.trim() ?? '';
+                      if (t.isEmpty) return '請輸入熱量';
+                      final n = double.tryParse(t);
+                      if (n == null || n < 0) return '熱量需為非負數字';
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SectionHeader(
+              icon: Icons.donut_small,
+              title: '三大營養素（選填，公克）',
+              color: palette.protein,
+            ),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+              child: Row(
+                children: [
+                  Expanded(child: _macroField(_protein, '蛋白質')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _macroField(_fat, '脂肪')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _macroField(_carbs, '碳水')),
+                ],
+              ),
             ),
             const SizedBox(height: 28),
             FilledButton(
@@ -202,7 +232,11 @@ class _AddMealScreenState extends ConsumerState<AddMealScreen> {
         controller: c,
         keyboardType: TextInputType.number,
         decoration: InputDecoration(
-            labelText: label, border: const OutlineInputBorder()),
+          labelText: label,
+          // 三欄並排時空間有限，縮一點 padding 才不會擠
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        ),
         validator: (v) {
           final t = v?.trim() ?? '';
           if (t.isEmpty) return null; // 選填

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import '../theme.dart';
+import '../widgets/common.dart';
 
 /// 記錄體重：可選擇日期（能補記過去），一天一筆、同日再記會覆寫。
 class AddWeightScreen extends ConsumerStatefulWidget {
@@ -76,55 +78,68 @@ class _AddWeightScreenState extends ConsumerState<AddWeightScreen> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
-            const Text('選擇日期並填入體重（一天一筆，同日會覆寫）。'),
-            const SizedBox(height: 4),
-            Text(
-              '想補記前幾天的體重也可以，趨勢圖才看得出變化。',
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+            InfoNote(
+              icon: Icons.lightbulb_outline,
+              color: theme.palette.carbs,
+              text: '選擇日期並填入體重（一天一筆，同日會覆寫）。\n'
+                  '想補記前幾天的體重也可以，趨勢圖才看得出變化。',
             ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _pickDate,
-              icon: const Icon(Icons.calendar_today_outlined),
-              label: Text(
-                '${_day.year}/${_day.month}/${_day.day}${_isToday ? '（今天）' : ''}',
+            const SizedBox(height: 20),
+            SoftCard(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('日期', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                      label: Text(
+                        '${_day.year}/${_day.month}/${_day.day}${_isToday ? '（今天）' : ''}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextFormField(
+                    controller: _weight,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '體重',
+                      suffixText: 'kg',
+                      prefixIcon: Icon(Icons.monitor_weight_outlined),
+                    ),
+                    validator: (v) {
+                      final t = v?.trim() ?? '';
+                      if (t.isEmpty) return '請輸入體重';
+                      final n = double.tryParse(t);
+                      if (n == null || n < 20 || n > 400) return '體重需介於 20–400';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _bodyFat,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '體脂率（選填）',
+                      suffixText: '%',
+                      prefixIcon: Icon(Icons.percent),
+                    ),
+                    validator: (v) {
+                      final t = v?.trim() ?? '';
+                      if (t.isEmpty) return null;
+                      final n = double.tryParse(t);
+                      if (n == null || n <= 0 || n >= 75) return '體脂率需介於 0–75';
+                      return null;
+                    },
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _weight,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '體重',
-                suffixText: 'kg',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) {
-                final t = v?.trim() ?? '';
-                if (t.isEmpty) return '請輸入體重';
-                final n = double.tryParse(t);
-                if (n == null || n < 20 || n > 400) return '體重需介於 20–400';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _bodyFat,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '體脂率（選填）',
-                suffixText: '%',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) {
-                final t = v?.trim() ?? '';
-                if (t.isEmpty) return null;
-                final n = double.tryParse(t);
-                if (n == null || n <= 0 || n >= 75) return '體脂率需介於 0–75';
-                return null;
-              },
             ),
             const SizedBox(height: 28),
             FilledButton(

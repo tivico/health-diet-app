@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme.dart';
 import 'dashboard_screen.dart';
 import 'education_screen.dart';
 import 'stats_screen.dart';
@@ -26,33 +27,52 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.today_outlined),
-            selectedIcon: Icon(Icons.today),
-            label: '今日',
+      // 導覽列上緣加一道細線與淡陰影，和內容區分開
+      bottomNavigationBar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.palette.surface,
+          border: Border(
+            top: BorderSide(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.monitor_weight_outlined),
-            selectedIcon: Icon(Icons.monitor_weight),
-            label: '體重',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: '統計',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book),
-            label: '衛教',
-          ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: theme.palette.shadow,
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.local_dining_outlined),
+              selectedIcon: Icon(Icons.local_dining),
+              label: '今日',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.monitor_weight_outlined),
+              selectedIcon: Icon(Icons.monitor_weight),
+              label: '體重',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights),
+              label: '統計',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.eco_outlined),
+              selectedIcon: Icon(Icons.eco),
+              label: '衛教',
+            ),
+          ],
+        ),
       ),
     );
   }
