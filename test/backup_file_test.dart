@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/backup_file.dart';
 import 'package:health/data/csv_export.dart';
+import 'package:health/domain/body_composition.dart';
 
 void main() {
   test('檔名帶日期，月、日補零', () {
@@ -67,6 +68,58 @@ void main() {
     test('還原前的 trim() 會去掉記事本存檔加上的 BOM', () {
       expect('$kUtf8Bom{}'.trim(), '{}');
       expect(summarizeBackup('$kUtf8Bom${backup()}\r\n'.trim()), isNotNull);
+    });
+
+    test('v4 備份的摘要會列出體組成筆數；舊備份不提', () {
+      final v4 = jsonEncode({
+        'version': 4,
+        'profile': null,
+        'meals': [],
+        'weights': [],
+        'bodyCompositions': [{}, {}, {}],
+      });
+      expect(summarizeBackup(v4)!.describe(), '餐點 0 筆、體重 0 筆、體組成 3 筆');
+      expect(summarizeBackup(backup())!.bodyCompositionCount, isNull);
+    });
+  });
+
+  group('體組成的 JSON 格式', () {
+    test('每個量測項目都有自己的欄位名稱，而且不重複', () {
+      expect(bodyCompositionJsonKeys.keys.toSet(), BodyMetric.values.toSet());
+      expect(bodyCompositionJsonKeys.values.toSet().length,
+          BodyMetric.values.length);
+    });
+
+    test('寫出再讀回，數值、來源、備註都一樣；沒量到的維持沒有', () {
+      final original = BodyComposition(
+        day: DateTime(2026, 3, 30),
+        values: {
+          BodyMetric.weight: 71.6,
+          BodyMetric.bodyFat: 25.1,
+          BodyMetric.visceralFat: 9,
+          BodyMetric.waist: 82.8,
+        },
+        source: 'InBody',
+        note: '早上空腹',
+      );
+
+      final back = bodyCompositionFromJson(
+          jsonDecode(jsonEncode(bodyCompositionToJson(original)))
+              as Map<String, dynamic>);
+
+      expect(back.day, original.day);
+      expect(back.values, original.values);
+      expect(back.valueOf(BodyMetric.hip), isNull);
+      expect(back.source, 'InBody');
+      expect(back.note, '早上空腹');
+    });
+
+    test('缺體重的紀錄讀不進來（還原會整筆退回）', () {
+      expect(
+        () => bodyCompositionFromJson(
+            {'day': '2026-03-30T00:00:00.000', 'bodyFatPct': 30}),
+        throwsFormatException,
+      );
     });
   });
 }

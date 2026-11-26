@@ -10,6 +10,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
 
@@ -309,6 +310,45 @@ void main() {
     });
   });
 
+  group('體組成', () {
+    BodyComposition body(DateTime day, double weight,
+            {double? fat, String? note}) =>
+        BodyComposition(
+          day: day,
+          values: {
+            BodyMetric.weight: weight,
+            BodyMetric.fatMass: ?fat,
+          },
+          note: note,
+        );
+
+    test('依日期由舊到新列出', () async {
+      await repo.upsertBodyComposition(body(DateTime(2026, 3, 30), 71.6));
+      await repo.upsertBodyComposition(body(DateTime(2026, 2, 2), 72.9));
+      await repo.upsertBodyComposition(body(DateTime(2026, 3, 2), 72.4));
+
+      final list = await repo.watchBodyCompositions().first;
+      expect([for (final b in list) b.weightKg], [72.9, 72.4, 71.6]);
+    });
+
+    test('同一天再記會覆寫，這次沒填的項目會清掉', () async {
+      await repo.upsertBodyComposition(
+          body(DateTime(2026, 3, 30, 8), 71.6, fat: 17.9, note: '空腹'));
+      await repo.upsertBodyComposition(body(DateTime(2026, 3, 30, 21), 72.1));
+
+      final b = (await repo.watchBodyCompositions().first).single;
+      expect(b.weightKg, 72.1);
+      expect(b.valueOf(BodyMetric.fatMass), isNull);
+      expect(b.note, isNull);
+    });
+
+    test('刪除', () async {
+      await repo.upsertBodyComposition(body(DateTime(2026, 3, 30), 71.6));
+      await repo.deleteBodyComposition(DateTime(2026, 3, 30, 15));
+      expect(await repo.watchBodyCompositions().first, isEmpty);
+    });
+  });
+
   group('備份', () {
     test('匯出再匯入可完整還原，並覆蓋既有資料', () async {
       await repo.saveProfile(profile(weightKg: 65, targetWeightKg: 58));
@@ -351,6 +391,43 @@ void main() {
       expect(weights.single.bodyFatPct, 28);
 
       await other.close();
+    });
+
+    test('體組成會一起備份與還原', () async {
+      await repo.upsertBodyComposition(BodyComposition(
+        day: DateTime(2026, 3, 30),
+        values: {
+          BodyMetric.weight: 71.6,
+          BodyMetric.skeletalMuscle: 30.7,
+          BodyMetric.waist: 82.8,
+        },
+        source: 'InBody',
+        note: '早上空腹',
+      ));
+      final backup = await repo.exportJson();
+
+      final other = AppDatabase(NativeDatabase.memory());
+      final otherRepo = DriftHealthRepository(other);
+      await otherRepo.importJson(backup);
+
+      final b = (await otherRepo.watchBodyCompositions().first).single;
+      expect(b.day, DateTime(2026, 3, 30));
+      expect(b.valueOf(BodyMetric.skeletalMuscle), 30.7);
+      expect(b.valueOf(BodyMetric.waist), 82.8);
+      expect(b.valueOf(BodyMetric.bodyFat), isNull);
+      expect(b.source, 'InBody');
+      expect(b.note, '早上空腹');
+      await other.close();
+    });
+
+    test('還原沒有體組成的舊備份（v3）：體組成也一起被覆蓋', () async {
+      await repo.upsertBodyComposition(BodyComposition(
+          day: DateTime(2026, 3, 30), values: {BodyMetric.weight: 71.6}));
+      const v3 = '{"version": 3, "profile": null, "meals": [], "weights": []}';
+
+      await repo.importJson(v3);
+
+      expect(await repo.watchBodyCompositions().first, isEmpty);
     });
 
     test('還原到一半出錯會整筆退回，原本的資料都還在', () async {

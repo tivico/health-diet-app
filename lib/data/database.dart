@@ -62,10 +62,48 @@ class WeightEntries extends Table {
 }
 
 // ---------------------------------------------------------------------------
+// 4) 體組成（v4 加入）：體脂計 / InBody 的量測報告，一天一筆（以 day 為主鍵）。
+//    除了體重都可以留空——不同機器量得到的項目不一樣。
+//    資料類別改名為 BodyCompositionRow，避免和 domain 層的 BodyComposition 撞名。
+// ---------------------------------------------------------------------------
+@DataClassName('BodyCompositionRow')
+class BodyCompositions extends Table {
+  DateTimeColumn get day => dateTime()();
+  RealColumn get weightKg => real()();
+  RealColumn get bodyFatPct => real().nullable()();
+  RealColumn get fatMassKg => real().nullable()();
+  RealColumn get skeletalMuscleKg => real().nullable()();
+  RealColumn get muscleMassKg => real().nullable()();
+  RealColumn get waterKg => real().nullable()();
+  RealColumn get fatFreeMassKg => real().nullable()();
+  RealColumn get subcutaneousFatPct => real().nullable()();
+  RealColumn get visceralFatLevel => real().nullable()();
+  RealColumn get bmrKcal => real().nullable()();
+  RealColumn get asmi => real().nullable()();
+  RealColumn get bodyAge => real().nullable()();
+  RealColumn get waistCm => real().nullable()();
+  RealColumn get hipCm => real().nullable()();
+  RealColumn get armCm => real().nullable()();
+  RealColumn get thighCm => real().nullable()();
+  RealColumn get neckCm => real().nullable()();
+  RealColumn get chestCm => real().nullable()();
+
+  /// 量測工具，例如「InBody」或體脂計的 App 名稱。
+  TextColumn get source => text().withLength(max: 40).nullable()();
+
+  /// 量測條件備註，例如「早上空腹」「生理期第 2 天」。
+  TextColumn get note => text().withLength(max: 200).nullable()();
+
+  @override
+  Set<Column> get primaryKey => {day};
+}
+
+// ---------------------------------------------------------------------------
 // 資料庫本體。driftDatabase()（來自 drift_flutter）會自動處理跨平台連線：
 // 行動平台走原生 SQLite、Web 走 sqlite3 WASM + OPFS。
 // ---------------------------------------------------------------------------
-@DriftDatabase(tables: [UserProfiles, MealEntries, WeightEntries])
+@DriftDatabase(
+    tables: [UserProfiles, MealEntries, WeightEntries, BodyCompositions])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ??
@@ -79,7 +117,7 @@ class AppDatabase extends _$AppDatabase {
             ));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// 資料庫版本升級策略。
   ///
@@ -106,6 +144,10 @@ class AppDatabase extends _$AppDatabase {
           // v3：個人資料加入「目標體重」。既有使用者維持 null（未設定）。
           if (from < 3) {
             await m.addColumn(userProfiles, userProfiles.targetWeightKg);
+          }
+          // v4：新增「體組成」資料表。既有資料不受影響。
+          if (from < 4) {
+            await m.createTable(bodyCompositions);
           }
         },
         beforeOpen: (details) async {

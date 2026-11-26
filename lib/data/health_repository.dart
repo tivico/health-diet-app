@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../domain/body_composition.dart';
 import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
+import 'backup_file.dart';
 import 'csv_export.dart';
 import 'database.dart';
 
@@ -72,6 +74,14 @@ abstract class HealthRepository {
     double? bodyFatPct,
   });
   Future<void> deleteWeight(DateTime day);
+
+  // 體組成（一天一筆）
+  /// 所有體組成紀錄，由舊到新。量測頻率低（幾週一次），不必分區間查。
+  Stream<List<BodyComposition>> watchBodyCompositions();
+
+  /// 新增或覆寫當天那筆。
+  Future<void> upsertBodyComposition(BodyComposition entry);
+  Future<void> deleteBodyComposition(DateTime day);
 
   // 備份
   /// 匯出所有資料成 JSON 字串。
@@ -272,6 +282,27 @@ class DriftHealthRepository implements HealthRepository {
     return (_db.delete(_db.weightEntries)..where((t) => t.day.equals(d))).go();
   }
 
+  // ===== 體組成 =====
+
+  @override
+  Stream<List<BodyComposition>> watchBodyCompositions() =>
+      (_db.select(_db.bodyCompositions)
+            ..orderBy([(t) => OrderingTerm.asc(t.day)]))
+          .watch()
+          .map((rows) => [for (final r in rows) _bodyFromRow(r)]);
+
+  @override
+  Future<void> upsertBodyComposition(BodyComposition entry) => _db
+      .into(_db.bodyCompositions)
+      .insertOnConflictUpdate(_bodyToCompanion(entry));
+
+  @override
+  Future<void> deleteBodyComposition(DateTime day) {
+    final d = DateTime(day.year, day.month, day.day);
+    return (_db.delete(_db.bodyCompositions)..where((t) => t.day.equals(d)))
+        .go();
+  }
+
   // ===== 備份 =====
 
   @override
@@ -297,11 +328,12 @@ class DriftHealthRepository implements HealthRepository {
             .getSingleOrNull();
     final meals = await _db.select(_db.mealEntries).get();
     final weights = await _db.select(_db.weightEntries).get();
+    final bodies = await _db.select(_db.bodyCompositions).get();
 
     final map = <String, dynamic>{
-      // 舊備份缺少後來才加的欄位（v2 的 mealType、v3 的 targetWeightKg），
-      // 匯入時一律當作沒有，不影響還原。
-      'version': 3,
+      // 舊備份缺少後來才加的資料（v2 的 mealType、v3 的 targetWeightKg、
+      // v4 的 bodyCompositions），匯入時一律當作沒有，不影響還原。
+      'version': 4,
       'profile': profileRow == null ? null : _profileToMap(_toDomain(profileRow)),
       'meals': [
         for (final m in meals)
@@ -323,6 +355,9 @@ class DriftHealthRepository implements HealthRepository {
             'bodyFatPct': w.bodyFatPct,
           }
       ],
+      'bodyCompositions': [
+        for (final b in bodies) bodyCompositionToJson(_bodyFromRow(b)),
+      ],
     };
     return const JsonEncoder.withIndent('  ').convert(map);
   }
@@ -333,6 +368,7 @@ class DriftHealthRepository implements HealthRepository {
     await _db.transaction(() async {
       await _db.delete(_db.mealEntries).go();
       await _db.delete(_db.weightEntries).go();
+      await _db.delete(_db.bodyCompositions).go();
       await _db.delete(_db.userProfiles).go();
 
       final p = map['profile'];
@@ -362,8 +398,70 @@ class DriftHealthRepository implements HealthRepository {
               : (ww['bodyFatPct'] as num).toDouble(),
         );
       }
+      for (final b in (map['bodyCompositions'] as List? ?? const [])) {
+        await upsertBodyComposition(
+            bodyCompositionFromJson(b as Map<String, dynamic>));
+      }
     });
   }
+}
+
+/// 資料列 → domain 的體組成：每個欄位對應一個 [BodyMetric]，null（沒量到）就略過。
+BodyComposition _bodyFromRow(BodyCompositionRow r) => BodyComposition(
+      day: r.day,
+      values: {
+        for (final (metric, value) in [
+          (BodyMetric.weight, r.weightKg),
+          (BodyMetric.bodyFat, r.bodyFatPct),
+          (BodyMetric.fatMass, r.fatMassKg),
+          (BodyMetric.skeletalMuscle, r.skeletalMuscleKg),
+          (BodyMetric.muscleMass, r.muscleMassKg),
+          (BodyMetric.water, r.waterKg),
+          (BodyMetric.fatFreeMass, r.fatFreeMassKg),
+          (BodyMetric.subcutaneousFat, r.subcutaneousFatPct),
+          (BodyMetric.visceralFat, r.visceralFatLevel),
+          (BodyMetric.bmr, r.bmrKcal),
+          (BodyMetric.asmi, r.asmi),
+          (BodyMetric.bodyAge, r.bodyAge),
+          (BodyMetric.waist, r.waistCm),
+          (BodyMetric.hip, r.hipCm),
+          (BodyMetric.arm, r.armCm),
+          (BodyMetric.thigh, r.thighCm),
+          (BodyMetric.neck, r.neckCm),
+          (BodyMetric.chest, r.chestCm),
+        ])
+          metric: ?value,
+      },
+      source: r.source,
+      note: r.note,
+    );
+
+/// domain → 寫入用的 companion。沒量到的項目寫 null，覆寫時才會清掉舊值。
+BodyCompositionsCompanion _bodyToCompanion(BodyComposition b) {
+  Value<double?> v(BodyMetric m) => Value(b.valueOf(m));
+  return BodyCompositionsCompanion.insert(
+    day: b.day,
+    weightKg: b.weightKg,
+    bodyFatPct: v(BodyMetric.bodyFat),
+    fatMassKg: v(BodyMetric.fatMass),
+    skeletalMuscleKg: v(BodyMetric.skeletalMuscle),
+    muscleMassKg: v(BodyMetric.muscleMass),
+    waterKg: v(BodyMetric.water),
+    fatFreeMassKg: v(BodyMetric.fatFreeMass),
+    subcutaneousFatPct: v(BodyMetric.subcutaneousFat),
+    visceralFatLevel: v(BodyMetric.visceralFat),
+    bmrKcal: v(BodyMetric.bmr),
+    asmi: v(BodyMetric.asmi),
+    bodyAge: v(BodyMetric.bodyAge),
+    waistCm: v(BodyMetric.waist),
+    hipCm: v(BodyMetric.hip),
+    armCm: v(BodyMetric.arm),
+    thighCm: v(BodyMetric.thigh),
+    neckCm: v(BodyMetric.neck),
+    chestCm: v(BodyMetric.chest),
+    source: Value(b.source),
+    note: Value(b.note),
+  );
 }
 
 /// 個人資料的 JSON 對應（enum 存名稱，跨版本較穩），備份共用。

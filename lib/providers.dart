@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/database.dart';
 import 'data/health_repository.dart';
+import 'domain/body_composition.dart';
 import 'domain/nutrition.dart';
 import 'domain/recent_foods.dart';
 import 'platform/local_files.dart';
@@ -89,3 +90,8 @@ final weightHistoryProvider = StreamProvider<List<WeightEntry>>((ref) {
   final from = to.subtract(const Duration(days: 90));
   return ref.watch(repositoryProvider).watchWeightsBetween(from, to);
 });
+
+/// 所有體組成紀錄（由舊到新）。量測頻率低，全部列出也不多。
+final bodyCompositionsProvider = StreamProvider<List<BodyComposition>>(
+  (ref) => ref.watch(repositoryProvider).watchBodyCompositions(),
+);

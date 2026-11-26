@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:health/data/backup_file.dart';
 import 'package:health/data/csv_export.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
 
@@ -13,11 +15,13 @@ class FakeHealthRepository implements HealthRepository {
   UserProfile? _profile;
   final List<MealEntry> _meals = [];
   final List<WeightEntry> _weights = [];
+  final List<BodyComposition> _bodies = [];
   int _nextId = 1;
 
   final _profileCtrl = StreamController<UserProfile?>.broadcast();
   final _mealsChanged = StreamController<void>.broadcast();
   final _weightsChanged = StreamController<void>.broadcast();
+  final _bodiesChanged = StreamController<void>.broadcast();
 
   FakeHealthRepository([this._profile]);
 
@@ -160,6 +164,30 @@ class FakeHealthRepository implements HealthRepository {
     _weightsChanged.add(null);
   }
 
+  // --- 體組成（一天一筆，由舊到新）---
+  @override
+  Stream<List<BodyComposition>> watchBodyCompositions() async* {
+    List<BodyComposition> sorted() =>
+        _bodies.toList()..sort((a, b) => a.day.compareTo(b.day));
+    yield sorted();
+    yield* _bodiesChanged.stream.map((_) => sorted());
+  }
+
+  @override
+  Future<void> upsertBodyComposition(BodyComposition entry) async {
+    _bodies
+      ..removeWhere((b) => b.day == entry.day)
+      ..add(entry);
+    _bodiesChanged.add(null);
+  }
+
+  @override
+  Future<void> deleteBodyComposition(DateTime day) async {
+    final d = DateTime(day.year, day.month, day.day);
+    _bodies.removeWhere((b) => b.day == d);
+    _bodiesChanged.add(null);
+  }
+
   // --- 備份 ---
   @override
   Future<String> exportMealsCsv() async => mealsToCsv(
@@ -173,7 +201,7 @@ class FakeHealthRepository implements HealthRepository {
   Future<String> exportJson() async {
     final p = _profile;
     final map = <String, dynamic>{
-      'version': 3,
+      'version': 4,
       'profile': p == null
           ? null
           : {
@@ -206,6 +234,7 @@ class FakeHealthRepository implements HealthRepository {
             'bodyFatPct': w.bodyFatPct,
           }
       ],
+      'bodyCompositions': [for (final b in _bodies) bodyCompositionToJson(b)],
     };
     return jsonEncode(map);
   }
@@ -215,6 +244,7 @@ class FakeHealthRepository implements HealthRepository {
     final map = jsonDecode(json) as Map<String, dynamic>;
     _meals.clear();
     _weights.clear();
+    _bodies.clear();
     final p = map['profile'];
     if (p is Map<String, dynamic>) {
       _profile = UserProfile(
@@ -255,8 +285,12 @@ class FakeHealthRepository implements HealthRepository {
             ww['bodyFatPct'] == null ? null : (ww['bodyFatPct'] as num).toDouble(),
       ));
     }
+    for (final b in (map['bodyCompositions'] as List? ?? const [])) {
+      _bodies.add(bodyCompositionFromJson(b as Map<String, dynamic>));
+    }
     _mealsChanged.add(null);
     _weightsChanged.add(null);
+    _bodiesChanged.add(null);
   }
 
   // --- helpers ---

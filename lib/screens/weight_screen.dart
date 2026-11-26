@@ -9,9 +9,10 @@ import '../providers.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'add_weight_screen.dart';
+import 'body_composition_section.dart';
 import 'onboarding_screen.dart';
 
-/// 體重追蹤：目標進度 + 趨勢折線圖 + 紀錄清單。
+/// 體重追蹤：目標進度 + 體組成 + 趨勢折線圖 + 紀錄清單。
 class WeightScreen extends ConsumerWidget {
   const WeightScreen({super.key});
 
@@ -53,6 +54,8 @@ class WeightScreen extends ConsumerWidget {
             )
           else if (profile != null)
             _SetGoalPrompt(profile: profile),
+          const SizedBox(height: 22),
+          const BodyCompositionSection(),
           const SizedBox(height: 22),
           if (entries.isEmpty)
             const EmptyState(

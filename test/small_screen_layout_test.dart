@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
 import 'package:health/main.dart';
@@ -86,6 +87,26 @@ void main() {
     await fake.upsertWeight(
         day: today.subtract(const Duration(days: 14)), weightKg: 64.2);
     await fake.upsertWeight(day: today, weightKg: 63, bodyFatPct: 27.5);
+    // 兩次體組成量測：項目齊全，摘要卡會排滿、也有「和上次比」
+    for (final (daysAgo, weight, fat, muscle) in [
+      (28, 64.5, 18.6, 24.1),
+      (0, 63.0, 17.4, 24.3),
+    ]) {
+      await fake.upsertBodyComposition(BodyComposition(
+        day: today.subtract(Duration(days: daysAgo)),
+        values: {
+          BodyMetric.weight: weight,
+          BodyMetric.bodyFat: fat / weight * 100,
+          BodyMetric.fatMass: fat,
+          BodyMetric.skeletalMuscle: muscle,
+          BodyMetric.muscleMass: muscle + 17,
+          BodyMetric.waist: 78.5,
+          BodyMetric.hip: 97.2,
+        },
+        source: 'InBody',
+        note: '早上空腹、量測前沒喝水',
+      ));
+    }
     return fake;
   }
 
@@ -141,6 +162,28 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FloatingActionButton, '記錄體重'));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('375×667 手機：體組成記錄頁與紀錄清單不會版面溢出', (tester) async {
+    await pumpApp(tester, await seeded());
+
+    await tester.tap(find.text('體重'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '記錄'));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2000));
+    await tester.pumpAndSettle();
+    // pageBack() 找的是英文「Back」提示；介面是中文，直接點返回鍵
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    // 捲到畫面中間再點：捲到最底下的話會被右下角的「記錄體重」浮動按鈕蓋住
+    final all = find.text('全部紀錄（2 筆）');
+    await Scrollable.ensureVisible(tester.element(all), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(all);
+    await tester.pumpAndSettle();
+    expect(find.text('體組成紀錄'), findsOneWidget);
   });
 
   testWidgets('375×667 手機：健康建議與計算方式頁不會版面溢出', (tester) async {

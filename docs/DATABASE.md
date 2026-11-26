@@ -13,13 +13,14 @@ IndexedDB），**沒有伺服器**。這代表一件很重要的事：
 
 ## 目前的資料表
 
-定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 3**。
+定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 4**。
 
 | 資料表 | 用途 | 主鍵 |
 |---|---|---|
 | `UserProfiles` | 使用者基本資料（性別 / 年齡 / 身高 / 體重 / 體脂 / 活動量 / 目標 / 目標體重） | `id`（固定為 1，單一使用者） |
 | `MealEntries` | 餐點紀錄（時間、名稱、熱量、三大營養素、餐別） | `id`（自動遞增） |
 | `WeightEntries` | 體重紀錄，一天一筆 | `day`（當天午夜） |
+| `BodyCompositions` | 體組成（體脂計 / InBody 報告的各項數值、圍度、量測工具與條件），一天一筆；除了體重都是 nullable | `day`（當天午夜） |
 
 `sex` / `activity` / `goal` / `mealType` 用 drift 的 `intEnum` 儲存，也就是**存 enum 的 index**。
 
@@ -107,6 +108,7 @@ onUpgrade: (m, from, to) async {
 
 - v1 → 最新版：個人資料 / 餐點 / 體重都在，新欄位為 null
 - v2 → 最新版：已經標好的餐別不會被弄丟
+- v3 → 最新版：目標體重還在，新的體組成資料表寫得進去
 - 升級後新欄位**寫得進去**（不是只讀得到 null）
 - 版本相同時不會重跑升級
 
@@ -152,7 +154,9 @@ SQLite 跑 `DriftHealthRepository`，涵蓋假 repo 測不到的部分：當日 
 | 1 | 初版：`UserProfiles` / `MealEntries` / `WeightEntries` | — |
 | 2 | `MealEntries` 加入 `mealType`（餐別，nullable） | `addColumn`；既有餐點維持 `null` → 顯示「未分類」 |
 | 3 | `UserProfiles` 加入 `targetWeightKg`（目標體重，nullable） | `addColumn`；既有使用者維持 `null` → 顯示設定引導 |
+| 4 | 新增 `BodyCompositions`（體組成） | `createTable`；既有資料不受影響，新表一開始是空的 |
 
-備份 JSON 的 `version` 跟著一起標（目前 3）。匯入時缺少後來才加的欄位
+備份 JSON 的 `version` 跟著一起標（目前 4）。體組成在備份裡的欄位名稱寫在
+`lib/data/backup_file.dart` 的 `bodyCompositionJsonKeys`——已發布的名稱不能改，只能新增。匯入時缺少後來才加的欄位
 一律當作沒有，認不得的餐別名稱也一樣 ——
 少一個標籤，總比整份備份匯不進來好。

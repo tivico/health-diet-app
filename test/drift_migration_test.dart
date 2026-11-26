@@ -16,6 +16,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -56,6 +57,9 @@ CREATE TABLE weight_entries (
 /// v2 相對於 v1 只多了餐別欄位。
 const _v2Extra = 'ALTER TABLE meal_entries ADD COLUMN meal_type INTEGER';
 
+/// v3 相對於 v2 只多了目標體重欄位（v3 起有快照：drift_schemas/drift_schema_v3.json）。
+const _v3Extra = 'ALTER TABLE user_profiles ADD COLUMN target_weight_kg REAL';
+
 /// drift 的 DateTime 預設存成 Unix 秒數。
 int _toDriftDateTime(DateTime d) => d.millisecondsSinceEpoch ~/ 1000;
 
@@ -71,6 +75,7 @@ File _createLegacyDatabase(Directory dir, int version) {
     raw.execute(ddl);
   }
   if (version >= 2) raw.execute(_v2Extra);
+  if (version >= 3) raw.execute(_v3Extra);
 
   // 個人資料：女性(1) / 輕度活動(1) / 減脂(0)
   raw.execute(
@@ -79,6 +84,9 @@ File _createLegacyDatabase(Directory dir, int version) {
     'VALUES (1, ?, 28, 165, 65, ?, ?, 28)',
     [Sex.female.index, ActivityLevel.light.index, Goal.lose.index],
   );
+  if (version >= 3) {
+    raw.execute('UPDATE user_profiles SET target_weight_kg = 58');
+  }
 
   if (version >= 2) {
     raw.execute(
@@ -126,7 +134,12 @@ Future<List<String>> _columnsOf(AppDatabase db, String table) async {
 
 Future<Map<String, List<String>>> _schemaShape(AppDatabase db) async {
   return {
-    for (final t in ['user_profiles', 'meal_entries', 'weight_entries'])
+    for (final t in [
+      'user_profiles',
+      'meal_entries',
+      'weight_entries',
+      'body_compositions',
+    ])
       t: await _columnsOf(db, t),
   };
 }
@@ -160,7 +173,7 @@ void main() {
   test('全新安裝就是最新版', () async {
     final db = AppDatabase(NativeDatabase.memory());
     expect(await _userVersion(db), db.schemaVersion);
-    expect(db.schemaVersion, 3);
+    expect(db.schemaVersion, 4);
     await db.close();
   });
 
@@ -190,8 +203,10 @@ void main() {
         .first;
     expect(weights.single.weightKg, 65);
     expect(weights.single.bodyFatPct, 28);
+    // v4 才加的資料表 → 舊使用者是空的
+    expect(await repo.watchBodyCompositions().first, isEmpty);
 
-    expect(await _userVersion(db), 3);
+    expect(await _userVersion(db), 4);
     expect(await _schemaShape(db), await freshSchemaShape());
     await db.close();
   });
@@ -205,7 +220,29 @@ void main() {
     expect(meals.single.mealType, MealType.lunch);
     expect((await repo.getProfile())!.targetWeightKg, isNull);
 
-    expect(await _userVersion(db), 3);
+    expect(await _userVersion(db), 4);
+    expect(await _schemaShape(db), await freshSchemaShape());
+    await db.close();
+  });
+
+  test('v3 資料庫升級到最新版：目標體重還在，可以開始記體組成', () async {
+    final db = AppDatabase(NativeDatabase(_createLegacyDatabase(dir, 3)));
+    final repo = DriftHealthRepository(db);
+
+    expect((await repo.getProfile())!.targetWeightKg, 58);
+    final meals = await repo.watchMealsOn(_mealDay).first;
+    expect(meals.single.mealType, MealType.lunch);
+    expect(await repo.watchBodyCompositions().first, isEmpty);
+
+    // 新資料表寫得進去、讀得回來
+    await repo.upsertBodyComposition(BodyComposition(
+      day: DateTime(2026, 3, 30),
+      values: {BodyMetric.weight: 71.6, BodyMetric.waist: 82.8},
+    ));
+    final b = (await repo.watchBodyCompositions().first).single;
+    expect(b.valueOf(BodyMetric.waist), 82.8);
+
+    expect(await _userVersion(db), 4);
     expect(await _schemaShape(db), await freshSchemaShape());
     await db.close();
   });
@@ -267,7 +304,7 @@ void main() {
         await DriftHealthRepository(second).watchMealsOn(_mealDay).first;
     expect(meals.single.name, '便當');
     expect(meals.single.mealType, MealType.lunch);
-    expect(await _userVersion(second), 3);
+    expect(await _userVersion(second), 4);
     await second.close();
   });
 }
