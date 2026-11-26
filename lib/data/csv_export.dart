@@ -15,8 +15,8 @@ const String _crlf = '\r\n';
 /// UTF-8 的 BOM。Excel（Windows）開沒有 BOM 的 UTF-8 CSV 會把中文顯示成亂碼，
 /// 存成檔案時放在開頭就正常了。
 ///
-/// 目前 App 是用「複製到剪貼簿」的方式匯出，貼上時多一個看不見的字元反而礙事，
-/// 所以匯出的字串**不含** BOM；未來若加上檔案下載，要記得補上。
+/// 這裡匯出的字串**不含** BOM：複製貼上時多一個看不見的字元反而礙事。
+/// 下載成檔案時，由備份頁在開頭補上（見 `lib/screens/backup_screen.dart`）。
 const String kUtf8Bom = '﻿';
 
 /// 單一欄位的跳脫。null 視為空欄位。

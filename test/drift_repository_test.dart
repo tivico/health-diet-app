@@ -352,5 +352,19 @@ void main() {
 
       await other.close();
     });
+
+    test('還原到一半出錯會整筆退回，原本的資料都還在', () async {
+      await repo.saveProfile(profile());
+      await addMeal(DateTime(2026, 3, 15, 12), '原本的便當', 800);
+      // 結構像備份（備份頁的檢查會放行），但餐點缺了時間，寫到一半會出錯
+      const broken = '{"version": 3, "profile": null, '
+          '"meals": [{"name": "壞掉的一筆"}], "weights": []}';
+
+      await expectLater(repo.importJson(broken), throwsA(anything));
+
+      expect(await repo.getProfile(), isNotNull);
+      final meals = await repo.watchMealsOn(DateTime(2026, 3, 15)).first;
+      expect(meals.single.name, '原本的便當');
+    });
   });
 }

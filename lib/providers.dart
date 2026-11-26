@@ -4,6 +4,7 @@ import 'data/database.dart';
 import 'data/health_repository.dart';
 import 'domain/nutrition.dart';
 import 'domain/recent_foods.dart';
+import 'platform/local_files.dart';
 
 /// 全 App 單一資料庫實例。
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -16,6 +17,9 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 final repositoryProvider = Provider<HealthRepository>(
   (ref) => DriftHealthRepository(ref.watch(databaseProvider)),
 );
+
+/// 在裝置上存檔 / 開檔（備份用；測試可覆寫成假實作）。
+final localFilesProvider = Provider<LocalFiles>((ref) => createLocalFiles());
 
 /// 目前使用者資料（reactive）；null 代表尚未建立（要顯示引導設定）。
 final profileProvider = StreamProvider<UserProfile?>(

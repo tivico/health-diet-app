@@ -6,6 +6,7 @@ import 'package:health/domain/nutrition.dart';
 import 'package:health/main.dart';
 import 'package:health/providers.dart';
 
+import 'fake_local_files.dart';
 import 'fake_repository.dart';
 
 /// 小螢幕版面測試：其他 widget 測試都把視窗開得很大（1080×3200）才好找元件，
@@ -16,7 +17,11 @@ import 'fake_repository.dart';
 void main() {
   const smallPhone = Size(375, 667);
 
-  Future<void> pumpApp(WidgetTester tester, FakeHealthRepository fake) async {
+  Future<void> pumpApp(
+    WidgetTester tester,
+    FakeHealthRepository fake, {
+    FakeLocalFiles? files,
+  }) async {
     tester.view.physicalSize = smallPhone;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -24,7 +29,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [repositoryProvider.overrideWithValue(fake)],
+        overrides: [
+          repositoryProvider.overrideWithValue(fake),
+          if (files != null) localFilesProvider.overrideWithValue(files),
+        ],
         child: const HealthApp(),
       ),
     );
@@ -168,9 +176,23 @@ void main() {
 
     await tester.tap(find.byTooltip('備份與還原'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, '產生備份'));
+    await tester.tap(find.widgetWithText(FilledButton, '產生備份文字'));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('375×667 手機：Web 版備份頁（可下載、選檔）不會版面溢出', (tester) async {
+    await pumpApp(tester, await seeded(), files: FakeLocalFiles());
+
+    await tester.tap(find.byTooltip('備份與還原'));
+    await tester.pumpAndSettle();
+    // 再展開文字備份的預覽區，是這一頁最長的狀態
+    final textBackup = find.text('改用文字備份（複製貼上）');
+    await tester.ensureVisible(textBackup);
+    await tester.tap(textBackup);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -900));
     await tester.pumpAndSettle();
   });
 }

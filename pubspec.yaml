@@ -41,6 +41,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   url_launcher: ^6.3.2
+  # Dart 官方的瀏覽器 API（備份檔下載 / 選檔，見 lib/platform/local_files_web.dart）；
+  # 原本就隨 drift 一起裝了，這裡改成直接相依，版本與指紋不變
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
