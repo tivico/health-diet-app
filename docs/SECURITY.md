@@ -95,6 +95,11 @@ python -m http.server 8090 --directory build/web
 下載和還原都只在瀏覽器裡進行、不經過網路，所以不需要動白名單；
 但檔案存出去之後就由使用者自己保管：放在只有自己看得到的地方，雲端硬碟不要開「知道連結的人都能看」。
 
+這個 repo 是公開的，所以 `.gitignore` 會擋下 App 匯出的備份檔與 CSV（`健康飲控備份-*.json`、`健康飲控-*.csv`）：
+就算不小心存進專案資料夾，也不會被 commit。[`test/gitignore_test.dart`](../test/gitignore_test.dart)
+用 App 實際產生的檔名比對這些規則，改了檔名卻忘了改 `.gitignore` 就會失敗。
+測試與範例裡的數字一律用虛構的，不放任何真實的個人紀錄。
+
 ---
 
 ## 加入第三方套件前的檢查清單

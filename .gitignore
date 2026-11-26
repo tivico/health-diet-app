@@ -51,6 +51,11 @@ local.properties
 # Claude Code 本機設定（工具用，非專案程式碼）
 .claude/
 
+# 個人資料不進版控：App 匯出的備份檔與 CSV（repo 是公開的）。
+# 就算不小心存進專案資料夾，也不會被 commit；檔名規則見 lib/data/backup_file.dart。
+健康飲控備份-*.json
+健康飲控-*.csv
+
 # 注意：以下「不」忽略，要進版控 —
 #   pubspec.lock（App 應鎖定相依版本）
 #   lib/data/database.g.dart（drift 產生碼，方便 clone 即可跑）
