@@ -58,7 +58,7 @@ git push
 | 時間 | 發生什麼 |
 |---|---|
 | 0 秒 | push 完成，兩個 workflow 同時啟動 |
-| ~2 分鐘 | CI 跑完（analyze + 32 項測試） |
+| ~2 分鐘 | CI 跑完（analyze + 全部測試） |
 | ~2–3 分鐘 | Deploy 跑完，網站更新 |
 
 > 💡 看到舊畫面？Flutter Web 有 service worker 快取，
@@ -99,6 +99,27 @@ Pages 沒辦法設定 COOP/COEP 標頭，所以 drift 會自動退回 **IndexedD
 建置指令多了 `--csp`，建置完還要多跑一步 `dart run tool/enable_csp.dart`，
 正式版的對外連線白名單才會生效（開發模式刻意不啟用，否則 `flutter run` 會白畫面）。
 原理、能擋什麼、怎麼新增來源，見 [資安說明](SECURITY.md)。
+
+### Flutter 版本固定
+
+`ci.yml` 和 `deploy.yml` 都寫死 `flutter-version: 3.44.2`，跟開發機同一版。
+沒寫的話 GitHub 每次都會裝「當下最新版」——2026-11 新版一推出，同一份程式碼的 CI 就突然檢查不過，
+部署出去的也不是本機測過的版本。
+
+**升級 Flutter 時**（一次做完，不要只改一邊）：
+
+1. 開發機升級：`flutter upgrade`（會影響這台電腦上所有 Flutter 專案）
+2. 兩個 workflow 的 `flutter-version` 改成 `flutter --version` 顯示的版本
+3. `flutter analyze`、`flutter test` 全過（新版常把舊寫法標成過時，要一起修）
+4. 在本機檢查正式版的對外連線白名單（[資安說明](SECURITY.md)「在本機檢查正式版」）
+5. commit 訊息寫明從哪一版升到哪一版
+
+`test/ci_workflow_test.dart` 會檢查兩個 workflow 都有寫死版本、而且是同一版。
+
+負責安裝 Flutter 的 `subosito/flutter-action` 是第三方提供的，所以鎖在固定的 commit
+（`@1a44944…  # v2.23.0`），不用會被改指的 `@v2` 標籤（原因見 [資安說明](SECURITY.md)）。
+要更新時，到它的 [Releases](https://github.com/subosito/flutter-action/releases) 找新版對應的 commit，
+兩個 workflow 一起換，並更新後面的版本註解。
 
 ---
 
@@ -217,3 +238,4 @@ docker run -p 8080:80 health-diet-app   # 開 http://localhost:8080
 | Deploy workflow 失敗 | 權限或 Pages 未啟用 | 看 Actions 的錯誤訊息；確認 Settings → Pages → Source |
 | 線上某個功能失效，Console 出現 `Content Security Policy` 錯誤 | 有資源不在對外連線白名單裡 | 見 [資安說明](SECURITY.md)「要新增來源時」 |
 | `flutter run` 白畫面，Console 說 inline script 被擋 | `web/index.html` 的白名單被改成生效狀態 | 恢復 `CSP-BEGIN` / `CSP-END` 標記（見 [資安說明](SECURITY.md)） |
+| CI 突然失敗，但本機 `flutter analyze` / `flutter test` 都過 | CI 和開發機的 Flutter 版本不同 | 確認兩個 workflow 的 `flutter-version` 跟 `flutter --version` 一樣（見「Flutter 版本固定」） |

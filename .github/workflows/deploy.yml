@@ -27,9 +27,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: subosito/flutter-action@v2
+      # Flutter 版本寫死，跟 ci.yml、開發機用同一版——部署出去的就是本機測過的版本
+      # （升級步驟見 docs/DEPLOYMENT.md）。
+      # 這個 action 是第三方提供的，鎖在固定的 commit（註解是對應版本），標籤被改也不受影響。
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
+          flutter-version: 3.44.2
           cache: true
 
       - name: 安裝相依套件
