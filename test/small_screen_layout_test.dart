@@ -246,6 +246,23 @@ void main() {
     expect(find.text('每次的重量'), findsOneWidget);
   });
 
+  testWidgets('375×667 手機：增肌減脂分析不會版面溢出', (tester) async {
+    await pumpApp(tester, await seeded());
+
+    await tester.tap(find.text('統計'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(Tab, '增肌減脂'));
+    await tester.pumpAndSettle();
+    for (final period in ['4 週', '全部']) {
+      await tester.tap(find.text(period));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, -2500));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(ListView).last, const Offset(0, 2500));
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('375×667 手機：健康建議與計算方式頁不會版面溢出', (tester) async {
     await pumpApp(tester, await seeded());
 

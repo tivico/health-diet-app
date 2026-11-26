@@ -10,8 +10,10 @@ import '../labels.dart';
 import '../providers.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'recomp_view.dart';
 
-/// 統計：近 7 / 30 天的每日熱量長條圖與摘要。
+/// 統計：「飲食」看近 7 / 30 天的每日熱量長條圖與摘要；
+/// 「增肌減脂」把體組成、訓練、飲食放在同一段期間裡看（見 recomp_view.dart）。
 /// 呼應衛教觀念——看「週趨勢」，而不是被單日數字綁架。
 class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
@@ -66,113 +68,124 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     ];
     final totalCalories = byType.fold<double>(0, (s, e) => s + e.$2);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('統計')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        children: [
-          Center(
-            child: SegmentedButton<int>(
-              segments: const [
-                ButtonSegment(value: 7, label: Text('近 7 天')),
-                ButtonSegment(value: 30, label: Text('近 30 天')),
-              ],
-              selected: {_days},
-              onSelectionChanged: (s) => setState(() => _days = s.first),
-            ),
-          ),
-          const SizedBox(height: 18),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('統計'),
+          bottom: const TabBar(tabs: [Tab(text: '飲食'), Tab(text: '增肌減脂')]),
+        ),
+        body: TabBarView(
+          children: [
+            ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                Center(
+                  child: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 7, label: Text('近 7 天')),
+                      ButtonSegment(value: 30, label: Text('近 30 天')),
+                    ],
+                    selected: {_days},
+                    onSelectionChanged: (s) => setState(() => _days = s.first),
+                  ),
+                ),
+                const SizedBox(height: 18),
 
-          // === 摘要數字 ===
-          Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  icon: Icons.local_fire_department_outlined,
-                  color: theme.colorScheme.primary,
-                  label: '平均每日攝取',
-                  value: summary.daysWithRecords == 0
-                      ? '—'
-                      : '${summary.averageCalories.round()}',
-                  unit: '大卡（目標 ${plan.calorieTarget.round()}）',
+                // === 摘要數字 ===
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        icon: Icons.local_fire_department_outlined,
+                        color: theme.colorScheme.primary,
+                        label: '平均每日攝取',
+                        value: summary.daysWithRecords == 0
+                            ? '—'
+                            : '${summary.averageCalories.round()}',
+                        unit: '大卡（目標 ${plan.calorieTarget.round()}）',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: StatTile(
+                        icon: Icons.edit_calendar_outlined,
+                        color: palette.carbs,
+                        label: '有記錄天數',
+                        value: '${summary.daysWithRecords}',
+                        unit: '／ $_days 天',
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: StatTile(
-                  icon: Icons.edit_calendar_outlined,
-                  color: palette.carbs,
-                  label: '有記錄天數',
-                  value: '${summary.daysWithRecords}',
-                  unit: '／ $_days 天',
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        icon: Icons.verified_outlined,
+                        color: palette.success,
+                        label: '達標天數',
+                        value: '${summary.daysOnTarget}',
+                        unit: '天（目標 ±10% 內）',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: _weightTile(summary)),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: StatTile(
-                  icon: Icons.verified_outlined,
-                  color: palette.success,
-                  label: '達標天數',
-                  value: '${summary.daysOnTarget}',
-                  unit: '天（目標 ±10% 內）',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: _weightTile(summary)),
-            ],
-          ),
-          const SizedBox(height: 22),
+                const SizedBox(height: 22),
 
-          // === 每日熱量長條圖 ===
-          const SectionHeader(
-            icon: Icons.bar_chart_rounded,
-            title: '每日熱量',
-            subtitle: '虛線為你的每日目標；超過目標的日子會標成紅色。',
-          ),
-          if (summary.daysWithRecords == 0)
-            const EmptyState(
-              icon: Icons.insights_outlined,
-              message: '這段期間還沒有餐點紀錄。\n到「今日」分頁記錄幾筆，這裡就會出現趨勢。',
-            )
-          else
-            SoftCard(
-              padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
-              child: SizedBox(
-                height: 210,
-                child: _CalorieBarChart(
-                  summary: summary,
-                  target: plan.calorieTarget,
+                // === 每日熱量長條圖 ===
+                const SectionHeader(
+                  icon: Icons.bar_chart_rounded,
+                  title: '每日熱量',
+                  subtitle: '虛線為你的每日目標；超過目標的日子會標成紅色。',
                 ),
-              ),
-            ),
+                if (summary.daysWithRecords == 0)
+                  const EmptyState(
+                    icon: Icons.insights_outlined,
+                    message: '這段期間還沒有餐點紀錄。\n到「今日」分頁記錄幾筆，這裡就會出現趨勢。',
+                  )
+                else
+                  SoftCard(
+                    padding: const EdgeInsets.fromLTRB(8, 20, 20, 12),
+                    child: SizedBox(
+                      height: 210,
+                      child: _CalorieBarChart(
+                        summary: summary,
+                        target: plan.calorieTarget,
+                      ),
+                    ),
+                  ),
 
-          // === 各餐別分佈 ===
-          if (byType.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            SectionHeader(
-              icon: Icons.pie_chart_outline,
-              title: '各餐別熱量分佈',
-              color: palette.breakfast,
-              subtitle: _topMealTypeLine(byType, totalCalories),
-            ),
-            SoftCard(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Column(
-                children: [
-                  for (final e in byType)
-                    _mealTypeRow(theme, e.$1, e.$2, totalCalories),
+                // === 各餐別分佈 ===
+                if (byType.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  SectionHeader(
+                    icon: Icons.pie_chart_outline,
+                    title: '各餐別熱量分佈',
+                    color: palette.breakfast,
+                    subtitle: _topMealTypeLine(byType, totalCalories),
+                  ),
+                  SoftCard(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      children: [
+                        for (final e in byType)
+                          _mealTypeRow(theme, e.$1, e.$2, totalCalories),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
 
-          const SizedBox(height: 20),
-          const FootNote('＊平均值只計算「有記錄」的日子，避免忘記記錄的日子把數字拉低。'),
-        ],
+                const SizedBox(height: 20),
+                const FootNote('＊平均值只計算「有記錄」的日子，避免忘記記錄的日子把數字拉低。'),
+              ],
+            ),
+            const RecompView(),
+          ],
+        ),
       ),
     );
   }
