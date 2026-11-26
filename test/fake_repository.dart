@@ -5,6 +5,7 @@ import 'package:health/data/backup_file.dart';
 import 'package:health/data/csv_export.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/activity.dart';
 import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
@@ -16,12 +17,16 @@ class FakeHealthRepository implements HealthRepository {
   final List<MealEntry> _meals = [];
   final List<WeightEntry> _weights = [];
   final List<BodyComposition> _bodies = [];
+  final List<Activity> _activities = [];
+  final List<Exercise> _exercises = [];
   int _nextId = 1;
 
   final _profileCtrl = StreamController<UserProfile?>.broadcast();
   final _mealsChanged = StreamController<void>.broadcast();
   final _weightsChanged = StreamController<void>.broadcast();
   final _bodiesChanged = StreamController<void>.broadcast();
+  final _activitiesChanged = StreamController<void>.broadcast();
+  final _exercisesChanged = StreamController<void>.broadcast();
 
   FakeHealthRepository([this._profile]);
 
@@ -188,6 +193,86 @@ class FakeHealthRepository implements HealthRepository {
     _bodiesChanged.add(null);
   }
 
+  // --- 運動（新到舊）---
+  @override
+  Stream<List<Activity>> watchActivities() async* {
+    List<Activity> sorted() =>
+        _activities.toList()..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    yield sorted();
+    yield* _activitiesChanged.stream.map((_) => sorted());
+  }
+
+  @override
+  Future<int> saveActivity(Activity a) async {
+    final id = a.id ?? _nextId++;
+    _activities
+      ..removeWhere((x) => x.id == id)
+      ..add(Activity(
+        id: id,
+        startedAt: a.startedAt,
+        kind: a.kind,
+        title: a.title,
+        duration: a.duration,
+        distanceKm: a.distanceKm,
+        calories: a.calories,
+        activeCalories: a.activeCalories,
+        avgHr: a.avgHr,
+        maxHr: a.maxHr,
+        zones: a.zones,
+        feeling: a.feeling,
+        garminActivityId: a.garminActivityId,
+        sets: a.sets,
+      ));
+    _activitiesChanged.add(null);
+    return id;
+  }
+
+  @override
+  Future<void> deleteActivity(int id) async {
+    _activities.removeWhere((a) => a.id == id);
+    _activitiesChanged.add(null);
+  }
+
+  // --- 器材（依名稱排序）---
+  @override
+  Stream<List<Exercise>> watchExercises() async* {
+    List<Exercise> sorted() =>
+        _exercises.toList()..sort((a, b) => a.name.compareTo(b.name));
+    yield sorted();
+    yield* _exercisesChanged.stream.map((_) => sorted());
+  }
+
+  bool _exerciseInUse(int id) =>
+      _activities.any((a) => a.sets.any((s) => s.exerciseId == id));
+
+  @override
+  Future<int> saveExercise(Exercise e) async {
+    final name = e.name.trim();
+    if (_exercises.any((x) => x.name == name && x.id != e.id)) {
+      throw DuplicateExerciseNameException(name);
+    }
+    if (e.id != null) {
+      final current = _exercises.firstWhere((x) => x.id == e.id);
+      if (current.unit != e.unit && _exerciseInUse(e.id!)) {
+        throw StateError('已經有紀錄的器材不能改單位');
+      }
+    }
+    final id = e.id ?? _nextId++;
+    _exercises
+      ..removeWhere((x) => x.id == id)
+      ..add(Exercise(id: id, name: name, unit: e.unit));
+    _exercisesChanged.add(null);
+    return id;
+  }
+
+  @override
+  Future<bool> deleteExercise(int id) async {
+    if (_exerciseInUse(id)) return false;
+    _exercises.removeWhere((x) => x.id == id);
+    _exercisesChanged.add(null);
+    return true;
+  }
+
   // --- 備份 ---
   @override
   Future<String> exportMealsCsv() async => mealsToCsv(
@@ -201,7 +286,7 @@ class FakeHealthRepository implements HealthRepository {
   Future<String> exportJson() async {
     final p = _profile;
     final map = <String, dynamic>{
-      'version': 4,
+      'version': 5,
       'profile': p == null
           ? null
           : {
@@ -235,6 +320,8 @@ class FakeHealthRepository implements HealthRepository {
           }
       ],
       'bodyCompositions': [for (final b in _bodies) bodyCompositionToJson(b)],
+      'exercises': [for (final e in _exercises) exerciseToJson(e)],
+      'activities': [for (final a in _activities) activityToJson(a)],
     };
     return jsonEncode(map);
   }
@@ -245,6 +332,8 @@ class FakeHealthRepository implements HealthRepository {
     _meals.clear();
     _weights.clear();
     _bodies.clear();
+    _activities.clear();
+    _exercises.clear();
     final p = map['profile'];
     if (p is Map<String, dynamic>) {
       _profile = UserProfile(
@@ -288,9 +377,21 @@ class FakeHealthRepository implements HealthRepository {
     for (final b in (map['bodyCompositions'] as List? ?? const [])) {
       _bodies.add(bodyCompositionFromJson(b as Map<String, dynamic>));
     }
+    final exerciseIds = <int, int>{};
+    for (final e in (map['exercises'] as List? ?? const [])) {
+      final ex = exerciseFromJson(e as Map<String, dynamic>);
+      final id = _nextId++;
+      exerciseIds[ex.id!] = id;
+      _exercises.add(Exercise(id: id, name: ex.name, unit: ex.unit));
+    }
+    for (final a in (map['activities'] as List? ?? const [])) {
+      await saveActivity(activityFromJson(a as Map<String, dynamic>,
+          exerciseIds: exerciseIds));
+    }
     _mealsChanged.add(null);
     _weightsChanged.add(null);
     _bodiesChanged.add(null);
+    _exercisesChanged.add(null);
   }
 
   // --- helpers ---

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'data/database.dart';
 import 'data/health_repository.dart';
+import 'domain/activity.dart';
 import 'domain/body_composition.dart';
 import 'domain/nutrition.dart';
 import 'domain/recent_foods.dart';
@@ -94,4 +95,14 @@ final weightHistoryProvider = StreamProvider<List<WeightEntry>>((ref) {
 /// 所有體組成紀錄（由舊到新）。量測頻率低，全部列出也不多。
 final bodyCompositionsProvider = StreamProvider<List<BodyComposition>>(
   (ref) => ref.watch(repositoryProvider).watchBodyCompositions(),
+);
+
+/// 所有運動紀錄（新到舊）。
+final activitiesProvider = StreamProvider<List<Activity>>(
+  (ref) => ref.watch(repositoryProvider).watchActivities(),
+);
+
+/// 器材 / 動作清單（依名稱排序）。
+final exercisesProvider = StreamProvider<List<Exercise>>(
+  (ref) => ref.watch(repositoryProvider).watchExercises(),
 );

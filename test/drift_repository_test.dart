@@ -10,6 +10,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/activity.dart';
 import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
@@ -349,7 +350,147 @@ void main() {
     });
   });
 
+  group('運動', () {
+    Future<int> rower() => repo
+        .saveExercise(const Exercise(name: '划船機 A', unit: WeightUnit.kg));
+
+    test('新增與列出：新到舊，動作依記錄順序，心率區間保留空位', () async {
+      final a = await rower();
+      final b = await repo
+          .saveExercise(const Exercise(name: '胸推機', unit: WeightUnit.lb));
+      await repo.saveActivity(Activity(
+        startedAt: DateTime(2026, 3, 2, 18),
+        kind: ActivityKind.strength,
+        duration: const Duration(minutes: 30),
+        sets: [
+          ExerciseSet(exerciseId: b, weight: 25, reps: 10, sets: 3),
+          ExerciseSet(exerciseId: a, weight: 20, reps: 10, sets: 3),
+        ],
+      ));
+      await repo.saveActivity(Activity(
+        startedAt: DateTime(2026, 3, 4, 7),
+        kind: ActivityKind.cardio,
+        title: '慢跑',
+        duration: const Duration(minutes: 31, seconds: 49),
+        calories: 214,
+        avgHr: 142,
+        maxHr: 171,
+        zones: const [
+          null,
+          Duration(minutes: 6),
+          Duration(minutes: 17, seconds: 2),
+          Duration(minutes: 5),
+          null,
+        ],
+      ));
+
+      final list = await repo.watchActivities().first;
+      expect([for (final x in list) x.kind],
+          [ActivityKind.cardio, ActivityKind.strength]);
+      final run = list.first;
+      expect(run.title, '慢跑');
+      expect(run.duration, const Duration(minutes: 31, seconds: 49));
+      expect(run.zones[2], const Duration(minutes: 17, seconds: 2));
+      expect(run.zones[0], isNull);
+      final gym = list.last;
+      expect([for (final s in gym.sets) s.exerciseId], [b, a]);
+      expect(gym.sets.first.weight, 25);
+    });
+
+    test('修改時動作整份取代；刪除時動作一起刪', () async {
+      final a = await rower();
+      final id = await repo.saveActivity(Activity(
+        startedAt: DateTime(2026, 3, 2),
+        kind: ActivityKind.strength,
+        duration: const Duration(minutes: 30),
+        sets: [
+          ExerciseSet(exerciseId: a, weight: 20, reps: 10, sets: 3),
+          ExerciseSet(exerciseId: a, weight: 22.5, reps: 8, sets: 1),
+        ],
+      ));
+      await repo.saveActivity(Activity(
+        id: id,
+        startedAt: DateTime(2026, 3, 2),
+        kind: ActivityKind.strength,
+        duration: const Duration(minutes: 35),
+        sets: [ExerciseSet(exerciseId: a, weight: 25, reps: 10, sets: 3)],
+      ));
+      final saved = (await repo.watchActivities().first).single;
+      expect(saved.duration, const Duration(minutes: 35));
+      expect([for (final s in saved.sets) s.weight], [25]);
+
+      await repo.deleteActivity(id);
+      expect(await repo.watchActivities().first, isEmpty);
+      expect(await db.select(db.exerciseSets).get(), isEmpty);
+    });
+
+    test('器材名稱不能重複；有紀錄的器材不能改單位、也不能刪', () async {
+      final a = await rower();
+      await expectLater(
+        repo.saveExercise(const Exercise(name: ' 划船機 A ', unit: WeightUnit.lb)),
+        throwsA(isA<DuplicateExerciseNameException>()),
+      );
+      // 還沒有紀錄：單位可以改
+      await repo.saveExercise(Exercise(id: a, name: '划船機 A', unit: WeightUnit.lb));
+      await repo.saveActivity(Activity(
+        startedAt: DateTime(2026, 3, 2),
+        kind: ActivityKind.strength,
+        duration: const Duration(minutes: 30),
+        sets: [ExerciseSet(exerciseId: a, weight: 40)],
+      ));
+      await expectLater(
+        repo.saveExercise(Exercise(id: a, name: '划船機 A', unit: WeightUnit.kg)),
+        throwsStateError,
+      );
+      // 改名沒關係
+      await repo.saveExercise(
+          Exercise(id: a, name: '划船機（第一台）', unit: WeightUnit.lb));
+      expect((await repo.watchExercises().first).single.name, '划船機（第一台）');
+
+      expect(await repo.deleteExercise(a), isFalse);
+      final unused = await repo
+          .saveExercise(const Exercise(name: '腿推機', unit: WeightUnit.kg));
+      expect(await repo.deleteExercise(unused), isTrue);
+    });
+  });
+
   group('備份', () {
+    test('運動與器材會一起備份；還原後器材重新編號，動作照樣接得上', () async {
+      final a = await repo
+          .saveExercise(const Exercise(name: '划船機 A', unit: WeightUnit.kg));
+      final b = await repo
+          .saveExercise(const Exercise(name: '胸推機', unit: WeightUnit.lb));
+      await repo.saveActivity(Activity(
+        startedAt: DateTime(2026, 3, 2, 18),
+        kind: ActivityKind.strength,
+        title: '健身房',
+        duration: const Duration(minutes: 36, seconds: 30),
+        calories: 131,
+        sets: [
+          ExerciseSet(exerciseId: a, weight: 20, reps: 10, sets: 3),
+          ExerciseSet(exerciseId: b, weight: 25, reps: 10, sets: 3),
+        ],
+      ));
+      final backup = await repo.exportJson();
+
+      final other = AppDatabase(NativeDatabase.memory());
+      final otherRepo = DriftHealthRepository(other);
+      // 先放一台器材，讓還原後的編號跟原本不一樣
+      await otherRepo
+          .saveExercise(const Exercise(name: '會被覆蓋掉', unit: WeightUnit.kg));
+      await otherRepo.importJson(backup);
+
+      final exercises = await otherRepo.watchExercises().first;
+      expect([for (final e in exercises) e.name], ['划船機 A', '胸推機']);
+      expect(exercises.last.unit, WeightUnit.lb);
+      final names = {for (final e in exercises) e.id: e.name};
+      final gym = (await otherRepo.watchActivities().first).single;
+      expect(gym.title, '健身房');
+      expect([for (final s in gym.sets) names[s.exerciseId]], ['划船機 A', '胸推機']);
+      expect(gym.sets.last.weight, 25);
+      await other.close();
+    });
+
     test('匯出再匯入可完整還原，並覆蓋既有資料', () async {
       await repo.saveProfile(profile(weightKg: 65, targetWeightKg: 58));
       await addMeal(DateTime(2026, 3, 15, 12), '便當', 800,

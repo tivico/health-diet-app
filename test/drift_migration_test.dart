@@ -16,6 +16,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/database.dart';
 import 'package:health/data/health_repository.dart';
+import 'package:health/domain/activity.dart';
 import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
@@ -60,6 +61,19 @@ const _v2Extra = 'ALTER TABLE meal_entries ADD COLUMN meal_type INTEGER';
 /// v3 相對於 v2 只多了目標體重欄位（v3 起有快照：drift_schemas/drift_schema_v3.json）。
 const _v3Extra = 'ALTER TABLE user_profiles ADD COLUMN target_weight_kg REAL';
 
+/// v4 多了體組成資料表（欄位照 drift_schemas/drift_schema_v4.json）。
+const _v4Extra = '''
+CREATE TABLE body_compositions (
+  day INTEGER NOT NULL,
+  weight_kg REAL NOT NULL,
+  body_fat_pct REAL, fat_mass_kg REAL, skeletal_muscle_kg REAL,
+  muscle_mass_kg REAL, water_kg REAL, fat_free_mass_kg REAL,
+  subcutaneous_fat_pct REAL, visceral_fat_level REAL, bmr_kcal REAL,
+  asmi REAL, body_age REAL, waist_cm REAL, hip_cm REAL, arm_cm REAL,
+  thigh_cm REAL, neck_cm REAL, chest_cm REAL, source TEXT, note TEXT,
+  PRIMARY KEY (day)
+)''';
+
 /// drift 的 DateTime 預設存成 Unix 秒數。
 int _toDriftDateTime(DateTime d) => d.millisecondsSinceEpoch ~/ 1000;
 
@@ -76,6 +90,7 @@ File _createLegacyDatabase(Directory dir, int version) {
   }
   if (version >= 2) raw.execute(_v2Extra);
   if (version >= 3) raw.execute(_v3Extra);
+  if (version >= 4) raw.execute(_v4Extra);
 
   // 個人資料：女性(1) / 輕度活動(1) / 減脂(0)
   raw.execute(
@@ -86,6 +101,12 @@ File _createLegacyDatabase(Directory dir, int version) {
   );
   if (version >= 3) {
     raw.execute('UPDATE user_profiles SET target_weight_kg = 58');
+  }
+  if (version >= 4) {
+    raw.execute(
+      'INSERT INTO body_compositions (day, weight_kg, waist_cm) VALUES (?, ?, ?)',
+      [_toDriftDateTime(_mealDay), 65.0, 80.0],
+    );
   }
 
   if (version >= 2) {
@@ -139,6 +160,9 @@ Future<Map<String, List<String>>> _schemaShape(AppDatabase db) async {
       'meal_entries',
       'weight_entries',
       'body_compositions',
+      'activities',
+      'exercises',
+      'exercise_sets',
     ])
       t: await _columnsOf(db, t),
   };
@@ -173,7 +197,7 @@ void main() {
   test('全新安裝就是最新版', () async {
     final db = AppDatabase(NativeDatabase.memory());
     expect(await _userVersion(db), db.schemaVersion);
-    expect(db.schemaVersion, 4);
+    expect(db.schemaVersion, 5);
     await db.close();
   });
 
@@ -206,7 +230,7 @@ void main() {
     // v4 才加的資料表 → 舊使用者是空的
     expect(await repo.watchBodyCompositions().first, isEmpty);
 
-    expect(await _userVersion(db), 4);
+    expect(await _userVersion(db), 5);
     expect(await _schemaShape(db), await freshSchemaShape());
     await db.close();
   });
@@ -220,7 +244,7 @@ void main() {
     expect(meals.single.mealType, MealType.lunch);
     expect((await repo.getProfile())!.targetWeightKg, isNull);
 
-    expect(await _userVersion(db), 4);
+    expect(await _userVersion(db), 5);
     expect(await _schemaShape(db), await freshSchemaShape());
     await db.close();
   });
@@ -242,7 +266,32 @@ void main() {
     final b = (await repo.watchBodyCompositions().first).single;
     expect(b.valueOf(BodyMetric.waist), 82.8);
 
-    expect(await _userVersion(db), 4);
+    expect(await _userVersion(db), 5);
+    expect(await _schemaShape(db), await freshSchemaShape());
+    await db.close();
+  });
+
+  test('v4 資料庫升級到最新版：體組成還在，可以開始記運動', () async {
+    final db = AppDatabase(NativeDatabase(_createLegacyDatabase(dir, 4)));
+    final repo = DriftHealthRepository(db);
+
+    final bodies = await repo.watchBodyCompositions().first;
+    expect(bodies.single.valueOf(BodyMetric.waist), 80);
+    expect(await repo.watchActivities().first, isEmpty);
+
+    // 新的三張表寫得進去、讀得回來（含外鍵關聯）
+    final rowId = await repo.saveExercise(
+        const Exercise(name: '划船機 A', unit: WeightUnit.kg));
+    await repo.saveActivity(Activity(
+      startedAt: DateTime(2026, 3, 30, 18),
+      kind: ActivityKind.strength,
+      duration: const Duration(minutes: 30),
+      sets: [ExerciseSet(exerciseId: rowId, weight: 20, reps: 10, sets: 3)],
+    ));
+    final a = (await repo.watchActivities().first).single;
+    expect(a.sets.single.weight, 20);
+
+    expect(await _userVersion(db), 5);
     expect(await _schemaShape(db), await freshSchemaShape());
     await db.close();
   });
@@ -304,7 +353,7 @@ void main() {
         await DriftHealthRepository(second).watchMealsOn(_mealDay).first;
     expect(meals.single.name, '便當');
     expect(meals.single.mealType, MealType.lunch);
-    expect(await _userVersion(second), 4);
+    expect(await _userVersion(second), 5);
     await second.close();
   });
 }

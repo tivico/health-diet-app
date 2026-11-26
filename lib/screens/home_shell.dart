@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'activity_screen.dart';
 import 'dashboard_screen.dart';
 import 'education_screen.dart';
 import 'stats_screen.dart';
 import 'weight_screen.dart';
 
-/// 主畫面外殼：底部導覽切換「今日 / 體重 / 統計 / 衛教」。
+/// 主畫面外殼：底部導覽切換「今日 / 體重 / 運動 / 統計 / 衛教」。
 /// 用 IndexedStack 保留各分頁狀態（切回來不會重置捲動位置等）。
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -21,6 +22,7 @@ class _HomeShellState extends State<HomeShell> {
   static const _pages = [
     DashboardScreen(),
     WeightScreen(),
+    ActivityScreen(),
     StatsScreen(),
     EducationScreen(),
   ];
@@ -60,6 +62,11 @@ class _HomeShellState extends State<HomeShell> {
               icon: Icon(Icons.monitor_weight_outlined),
               selectedIcon: Icon(Icons.monitor_weight),
               label: '體重',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.directions_run_outlined),
+              selectedIcon: Icon(Icons.directions_run),
+              label: '運動',
             ),
             NavigationDestination(
               icon: Icon(Icons.insights_outlined),

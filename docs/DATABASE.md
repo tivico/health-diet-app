@@ -13,7 +13,7 @@ IndexedDB），**沒有伺服器**。這代表一件很重要的事：
 
 ## 目前的資料表
 
-定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 4**。
+定義在 [`lib/data/database.dart`](../lib/data/database.dart)，目前 **schemaVersion = 5**。
 
 | 資料表 | 用途 | 主鍵 |
 |---|---|---|
@@ -21,6 +21,11 @@ IndexedDB），**沒有伺服器**。這代表一件很重要的事：
 | `MealEntries` | 餐點紀錄（時間、名稱、熱量、三大營養素、餐別） | `id`（自動遞增） |
 | `WeightEntries` | 體重紀錄，一天一筆 | `day`（當天午夜） |
 | `BodyCompositions` | 體組成（體脂計 / InBody 報告的各項數值、圍度、量測工具與條件），一天一筆；除了體重都是 nullable | `day`（當天午夜） |
+| `Activities` | 運動（種類、名稱、開始時間、時長、熱量、平均 / 最高心率、心率區間 Zone 1～5、感受；`garminActivityId` 之後匯入時用來合併） | `id`（自動遞增） |
+| `Exercises` | 器材 / 動作清單（名稱不重複、固定一種重量單位） | `id`（自動遞增） |
+| `ExerciseSets` | 肌力訓練的每個動作：重量 × 每組次數 × 組數；參照 `Activities`（刪運動時跟著刪）與 `Exercises` | `id`（自動遞增） |
+
+`kind`（運動種類）、`unit`（重量單位）同樣用 `intEnum` 存 index，規則同下。
 
 `sex` / `activity` / `goal` / `mealType` 用 drift 的 `intEnum` 儲存，也就是**存 enum 的 index**。
 
@@ -109,6 +114,7 @@ onUpgrade: (m, from, to) async {
 - v1 → 最新版：個人資料 / 餐點 / 體重都在，新欄位為 null
 - v2 → 最新版：已經標好的餐別不會被弄丟
 - v3 → 最新版：目標體重還在，新的體組成資料表寫得進去
+- v4 → 最新版：體組成還在，新的運動三張表寫得進去（含外鍵關聯）
 - 升級後新欄位**寫得進去**（不是只讀得到 null）
 - 版本相同時不會重跑升級
 
@@ -155,8 +161,12 @@ SQLite 跑 `DriftHealthRepository`，涵蓋假 repo 測不到的部分：當日 
 | 2 | `MealEntries` 加入 `mealType`（餐別，nullable） | `addColumn`；既有餐點維持 `null` → 顯示「未分類」 |
 | 3 | `UserProfiles` 加入 `targetWeightKg`（目標體重，nullable） | `addColumn`；既有使用者維持 `null` → 顯示設定引導 |
 | 4 | 新增 `BodyCompositions`（體組成） | `createTable`；既有資料不受影響，新表一開始是空的 |
+| 5 | 新增 `Activities` / `Exercises` / `ExerciseSets`（運動、器材、肌力動作） | 依序 `createTable`（動作表參照另外兩張，最後建）；既有資料不受影響 |
 
-備份 JSON 的 `version` 跟著一起標（目前 4）。體組成在備份裡的欄位名稱寫在
-`lib/data/backup_file.dart` 的 `bodyCompositionJsonKeys`——已發布的名稱不能改，只能新增。匯入時缺少後來才加的欄位
-一律當作沒有，認不得的餐別名稱也一樣 ——
+備份 JSON 的 `version` 跟著一起標（目前 5）。體組成在備份裡的欄位名稱寫在
+`lib/data/backup_file.dart` 的 `bodyCompositionJsonKeys`——已發布的名稱不能改，只能新增。
+運動的種類、器材的單位在備份裡存英文名稱（`cardio`、`lb`），器材還原時會重新編號，
+動作再照「舊編號 → 新編號」接回去。
+
+匯入時缺少後來才加的欄位一律當作沒有，認不得的餐別名稱也一樣 ——
 少一個標籤，總比整份備份匯不進來好。

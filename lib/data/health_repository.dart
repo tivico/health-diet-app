@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../domain/activity.dart';
 import '../domain/body_composition.dart';
 import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
@@ -82,6 +83,25 @@ abstract class HealthRepository {
   /// 新增或覆寫當天那筆。
   Future<void> upsertBodyComposition(BodyComposition entry);
   Future<void> deleteBodyComposition(DateTime day);
+
+  // 運動
+  /// 所有運動紀錄，新到舊；肌力訓練含各個動作（依記錄順序）。
+  Stream<List<Activity>> watchActivities();
+
+  /// [Activity.id] 是 null 就新增，否則修改（動作整份取代）。回傳 id。
+  Future<int> saveActivity(Activity activity);
+  Future<void> deleteActivity(int id);
+
+  // 器材 / 動作清單
+  /// 依名稱排序。
+  Stream<List<Exercise>> watchExercises();
+
+  /// 新增或修改。名稱重複丟 [DuplicateExerciseNameException]；
+  /// 已經有紀錄的器材改單位丟 [StateError]（舊重量會被誤讀）。回傳 id。
+  Future<int> saveExercise(Exercise exercise);
+
+  /// 只刪得掉沒被任何紀錄用到的器材；用過的回傳 false、不會刪。
+  Future<bool> deleteExercise(int id);
 
   // 備份
   /// 匯出所有資料成 JSON 字串。
@@ -303,6 +323,121 @@ class DriftHealthRepository implements HealthRepository {
         .go();
   }
 
+  // ===== 運動 =====
+
+  @override
+  Stream<List<Activity>> watchActivities() {
+    // 用 join 一起查：運動或動作任一張表有變動，畫面都會更新
+    final query = _db.select(_db.activities).join([
+      leftOuterJoin(_db.exerciseSets,
+          _db.exerciseSets.activityId.equalsExp(_db.activities.id)),
+    ])
+      ..orderBy([
+        OrderingTerm.desc(_db.activities.startedAt),
+        OrderingTerm.asc(_db.exerciseSets.position),
+      ]);
+    return query.watch().map((rows) {
+      // Map 會保留放進去的順序，也就是上面排好的「新到舊」
+      final byId = <int, (ActivityRow, List<ExerciseSetRow>)>{};
+      for (final row in rows) {
+        final a = row.readTable(_db.activities);
+        final entry = byId.putIfAbsent(a.id, () => (a, <ExerciseSetRow>[]));
+        final s = row.readTableOrNull(_db.exerciseSets);
+        if (s != null) entry.$2.add(s);
+      }
+      return [for (final (a, sets) in byId.values) _activityFromRow(a, sets)];
+    });
+  }
+
+  @override
+  Future<int> saveActivity(Activity activity) =>
+      _db.transaction(() => _writeActivity(activity));
+
+  /// 寫入一次運動與它的動作（呼叫端負責包在交易裡）。
+  Future<int> _writeActivity(Activity a) async {
+    final int id;
+    if (a.id == null) {
+      id = await _db.into(_db.activities).insert(_activityToCompanion(a));
+    } else {
+      id = a.id!;
+      await (_db.update(_db.activities)..where((t) => t.id.equals(id)))
+          .write(_activityToCompanion(a));
+      await (_db.delete(_db.exerciseSets)..where((t) => t.activityId.equals(id)))
+          .go();
+    }
+    for (final (i, s) in a.sets.indexed) {
+      await _db.into(_db.exerciseSets).insert(ExerciseSetsCompanion.insert(
+            activityId: id,
+            exerciseId: s.exerciseId,
+            position: i,
+            weight: Value(s.weight),
+            reps: Value(s.reps),
+            sets: Value(s.sets),
+          ));
+    }
+    return id;
+  }
+
+  @override
+  Future<void> deleteActivity(int id) => _db.transaction(() async {
+        await (_db.delete(_db.exerciseSets)
+              ..where((t) => t.activityId.equals(id)))
+            .go();
+        await (_db.delete(_db.activities)..where((t) => t.id.equals(id))).go();
+      });
+
+  // ===== 器材 / 動作清單 =====
+
+  @override
+  Stream<List<Exercise>> watchExercises() =>
+      (_db.select(_db.exercises)..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch()
+          .map((rows) => [
+                for (final r in rows)
+                  Exercise(id: r.id, name: r.name, unit: r.unit),
+              ]);
+
+  Future<bool> _exerciseInUse(int id) async =>
+      await (_db.select(_db.exerciseSets)
+            ..where((t) => t.exerciseId.equals(id))
+            ..limit(1))
+          .getSingleOrNull() !=
+      null;
+
+  @override
+  Future<int> saveExercise(Exercise exercise) => _db.transaction(() async {
+        final name = exercise.name.trim();
+        final id = exercise.id;
+        final clash = await (_db.select(_db.exercises)
+              ..where((t) => t.name.equals(name))
+              ..limit(1))
+            .getSingleOrNull();
+        if (clash != null && clash.id != id) {
+          throw DuplicateExerciseNameException(name);
+        }
+        if (id == null) {
+          return _db
+              .into(_db.exercises)
+              .insert(ExercisesCompanion.insert(name: name, unit: exercise.unit));
+        }
+        final current = await (_db.select(_db.exercises)
+              ..where((t) => t.id.equals(id)))
+            .getSingle();
+        if (current.unit != exercise.unit && await _exerciseInUse(id)) {
+          throw StateError('已經有紀錄的器材不能改單位');
+        }
+        await (_db.update(_db.exercises)..where((t) => t.id.equals(id))).write(
+            ExercisesCompanion(name: Value(name), unit: Value(exercise.unit)));
+        return id;
+      });
+
+  @override
+  Future<bool> deleteExercise(int id) => _db.transaction(() async {
+        if (await _exerciseInUse(id)) return false;
+        await (_db.delete(_db.exercises)..where((t) => t.id.equals(id))).go();
+        return true;
+      });
+
   // ===== 備份 =====
 
   @override
@@ -329,11 +464,13 @@ class DriftHealthRepository implements HealthRepository {
     final meals = await _db.select(_db.mealEntries).get();
     final weights = await _db.select(_db.weightEntries).get();
     final bodies = await _db.select(_db.bodyCompositions).get();
+    final exercises = await watchExercises().first;
+    final activities = await watchActivities().first;
 
     final map = <String, dynamic>{
       // 舊備份缺少後來才加的資料（v2 的 mealType、v3 的 targetWeightKg、
-      // v4 的 bodyCompositions），匯入時一律當作沒有，不影響還原。
-      'version': 4,
+      // v4 的 bodyCompositions、v5 的 exercises / activities），匯入時一律當作沒有。
+      'version': 5,
       'profile': profileRow == null ? null : _profileToMap(_toDomain(profileRow)),
       'meals': [
         for (final m in meals)
@@ -358,6 +495,8 @@ class DriftHealthRepository implements HealthRepository {
       'bodyCompositions': [
         for (final b in bodies) bodyCompositionToJson(_bodyFromRow(b)),
       ],
+      'exercises': [for (final e in exercises) exerciseToJson(e)],
+      'activities': [for (final a in activities) activityToJson(a)],
     };
     return const JsonEncoder.withIndent('  ').convert(map);
   }
@@ -369,6 +508,10 @@ class DriftHealthRepository implements HealthRepository {
       await _db.delete(_db.mealEntries).go();
       await _db.delete(_db.weightEntries).go();
       await _db.delete(_db.bodyCompositions).go();
+      // 動作參照運動與器材，要最先刪
+      await _db.delete(_db.exerciseSets).go();
+      await _db.delete(_db.activities).go();
+      await _db.delete(_db.exercises).go();
       await _db.delete(_db.userProfiles).go();
 
       final p = map['profile'];
@@ -402,8 +545,78 @@ class DriftHealthRepository implements HealthRepository {
         await upsertBodyComposition(
             bodyCompositionFromJson(b as Map<String, dynamic>));
       }
+      // 器材重新編號，動作再照「舊編號 → 新編號」接回去
+      final exerciseIds = <int, int>{};
+      for (final e in (map['exercises'] as List? ?? const [])) {
+        final ex = exerciseFromJson(e as Map<String, dynamic>);
+        exerciseIds[ex.id!] = await _db
+            .into(_db.exercises)
+            .insert(ExercisesCompanion.insert(name: ex.name, unit: ex.unit));
+      }
+      for (final a in (map['activities'] as List? ?? const [])) {
+        await _writeActivity(activityFromJson(a as Map<String, dynamic>,
+            exerciseIds: exerciseIds));
+      }
     });
   }
+}
+
+/// 資料列 → domain 的運動。
+Activity _activityFromRow(ActivityRow r, List<ExerciseSetRow> sets) {
+  Duration? sec(int? s) => s == null ? null : Duration(seconds: s);
+  return Activity(
+    id: r.id,
+    startedAt: r.startedAt,
+    kind: r.kind,
+    title: r.title,
+    duration: Duration(seconds: r.durationSec),
+    distanceKm: r.distanceKm,
+    calories: r.calories,
+    activeCalories: r.activeCalories,
+    avgHr: r.avgHr,
+    maxHr: r.maxHr,
+    zones: [
+      sec(r.zone1Sec),
+      sec(r.zone2Sec),
+      sec(r.zone3Sec),
+      sec(r.zone4Sec),
+      sec(r.zone5Sec),
+    ],
+    feeling: r.feeling,
+    garminActivityId: r.garminActivityId,
+    sets: [
+      for (final s in sets)
+        ExerciseSet(
+          exerciseId: s.exerciseId,
+          weight: s.weight,
+          reps: s.reps,
+          sets: s.sets,
+        ),
+    ],
+  );
+}
+
+/// domain → 寫入用的 companion（不含 id；沒填的寫 null，修改時才會清掉舊值）。
+ActivitiesCompanion _activityToCompanion(Activity a) {
+  Value<int?> zone(int i) => Value(a.zones[i]?.inSeconds);
+  return ActivitiesCompanion.insert(
+    startedAt: a.startedAt,
+    kind: a.kind,
+    title: Value(a.title),
+    durationSec: a.duration.inSeconds,
+    distanceKm: Value(a.distanceKm),
+    calories: Value(a.calories),
+    activeCalories: Value(a.activeCalories),
+    avgHr: Value(a.avgHr),
+    maxHr: Value(a.maxHr),
+    zone1Sec: zone(0),
+    zone2Sec: zone(1),
+    zone3Sec: zone(2),
+    zone4Sec: zone(3),
+    zone5Sec: zone(4),
+    feeling: Value(a.feeling),
+    garminActivityId: Value(a.garminActivityId),
+  );
 }
 
 /// 資料列 → domain 的體組成：每個欄位對應一個 [BodyMetric]，null（沒量到）就略過。

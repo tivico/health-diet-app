@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:health/domain/activity.dart';
 import 'package:health/domain/body_composition.dart';
 import 'package:health/domain/meal_type.dart';
 import 'package:health/domain/nutrition.dart';
@@ -107,6 +108,41 @@ void main() {
         note: '早上空腹、量測前沒喝水',
       ));
     }
+    // 運動：一次有氧（心率區間齊全）、一次肌力（兩台器材）
+    final rower = await fake.saveExercise(
+        const Exercise(name: '划船機（第一台，坐姿寬握）', unit: WeightUnit.kg));
+    final press =
+        await fake.saveExercise(const Exercise(name: '胸推機', unit: WeightUnit.lb));
+    await fake.saveActivity(Activity(
+      startedAt: today.add(const Duration(hours: 7)),
+      kind: ActivityKind.cardio,
+      title: '有氧舞蹈（高強度）',
+      duration: const Duration(minutes: 31, seconds: 49),
+      calories: 214,
+      activeCalories: 178,
+      avgHr: 142,
+      maxHr: 171,
+      zones: const [
+        Duration(minutes: 2),
+        Duration(minutes: 6),
+        Duration(minutes: 17),
+        Duration(minutes: 5),
+        Duration(seconds: 30),
+      ],
+      feeling: '後段有點沒力',
+    ));
+    await fake.saveActivity(Activity(
+      startedAt: today.subtract(const Duration(days: 2, hours: -18)),
+      kind: ActivityKind.strength,
+      title: '健身房重訓',
+      duration: const Duration(minutes: 36, seconds: 30),
+      calories: 131,
+      avgHr: 109,
+      sets: [
+        ExerciseSet(exerciseId: rower, weight: 22.5, reps: 10, sets: 3),
+        ExerciseSet(exerciseId: press, weight: 25, reps: 10, sets: 3),
+      ],
+    ));
     return fake;
   }
 
@@ -121,7 +157,7 @@ void main() {
   testWidgets('375×667 手機：體重 / 統計 / 衛教分頁不會版面溢出', (tester) async {
     await pumpApp(tester, await seeded());
 
-    for (final tab in ['體重', '統計', '衛教']) {
+    for (final tab in ['體重', '運動', '統計', '衛教']) {
       await tester.tap(find.text(tab));
       await tester.pumpAndSettle();
       await tester.drag(find.byType(ListView).first, const Offset(0, -800));
@@ -184,6 +220,30 @@ void main() {
     await tester.tap(all);
     await tester.pumpAndSettle();
     expect(find.text('體組成紀錄'), findsOneWidget);
+  });
+
+  testWidgets('375×667 手機：運動記錄頁（肌力）、器材清單與進步紀錄不會版面溢出',
+      (tester) async {
+    await pumpApp(tester, await seeded());
+
+    await tester.tap(find.text('運動'));
+    await tester.pumpAndSettle();
+    // 修改那筆肌力訓練：動作列、複製上次、心率區間都會排到版
+    final gym = find.text('健身房重訓');
+    await Scrollable.ensureVisible(tester.element(gym), alignment: 0.5);
+    await tester.pumpAndSettle();
+    await tester.tap(gym);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView).first, const Offset(0, -2500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('器材清單'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('划船機（第一台，坐姿寬握）'));
+    await tester.pumpAndSettle();
+    expect(find.text('每次的重量'), findsOneWidget);
   });
 
   testWidgets('375×667 手機：健康建議與計算方式頁不會版面溢出', (tester) async {

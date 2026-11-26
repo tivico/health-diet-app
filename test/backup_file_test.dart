@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:health/data/backup_file.dart';
 import 'package:health/data/csv_export.dart';
+import 'package:health/domain/activity.dart';
 import 'package:health/domain/body_composition.dart';
 
 void main() {
@@ -114,12 +115,71 @@ void main() {
       expect(back.note, '早上空腹');
     });
 
+    test('v5 備份的摘要會列出運動筆數', () {
+      final v5 = jsonEncode({
+        'version': 5,
+        'profile': null,
+        'meals': [],
+        'weights': [],
+        'bodyCompositions': [],
+        'exercises': [{}],
+        'activities': [{}, {}],
+      });
+      expect(summarizeBackup(v5)!.describe(),
+          '餐點 0 筆、體重 0 筆、體組成 0 筆、運動 2 筆');
+    });
+
     test('缺體重的紀錄讀不進來（還原會整筆退回）', () {
       expect(
         () => bodyCompositionFromJson(
             {'day': '2026-03-30T00:00:00.000', 'bodyFatPct': 30}),
         throwsFormatException,
       );
+    });
+  });
+
+  group('運動的 JSON 格式', () {
+    test('寫出再讀回：數值、心率區間、動作都一樣；器材編號照對照表換', () {
+      final original = Activity(
+        startedAt: DateTime(2026, 3, 4, 7, 30),
+        kind: ActivityKind.strength,
+        title: '健身房',
+        duration: const Duration(minutes: 36, seconds: 30),
+        calories: 131,
+        activeCalories: 90,
+        avgHr: 109,
+        maxHr: 143,
+        zones: const [Duration(minutes: 5), null, null, null, null],
+        feeling: '狀態不錯',
+        garminActivityId: 123456789,
+        sets: const [ExerciseSet(exerciseId: 7, weight: 20, reps: 10, sets: 3)],
+      );
+
+      final back = activityFromJson(
+        jsonDecode(jsonEncode(activityToJson(original))) as Map<String, dynamic>,
+        exerciseIds: {7: 1},
+      );
+
+      expect(back.startedAt, original.startedAt);
+      expect(back.kind, ActivityKind.strength);
+      expect(back.duration, original.duration);
+      expect(back.activeCalories, 90);
+      expect(back.zones, original.zones);
+      expect(back.feeling, '狀態不錯');
+      expect(back.garminActivityId, 123456789);
+      expect(back.sets.single.exerciseId, 1);
+      expect(back.sets.single.weight, 20);
+    });
+
+    test('動作對不到器材就報錯（還原會整筆退回）', () {
+      final json = activityToJson(Activity(
+        startedAt: DateTime(2026, 3, 4),
+        kind: ActivityKind.strength,
+        duration: const Duration(minutes: 30),
+        sets: const [ExerciseSet(exerciseId: 7)],
+      ));
+      expect(() => activityFromJson(json, exerciseIds: const {}),
+          throwsFormatException);
     });
   });
 }

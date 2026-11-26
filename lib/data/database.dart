@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../domain/activity.dart';
 import '../domain/meal_type.dart';
 import '../domain/nutrition.dart';
 
@@ -99,11 +100,70 @@ class BodyCompositions extends Table {
 }
 
 // ---------------------------------------------------------------------------
+// 5) 運動（v5 加入）：一次運動一筆；肌力訓練的每個動作記在 ExerciseSets。
+//    欄位對齊 Garmin 個人 API 的活動摘要，之後匯入時可以直接對應。
+//    三張表的資料類別都加 Row 結尾，避免和 domain 層的同名類別撞名。
+// ---------------------------------------------------------------------------
+@DataClassName('ActivityRow')
+class Activities extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get startedAt => dateTime()();
+  IntColumn get kind => intEnum<ActivityKind>()();
+  TextColumn get title => text().withLength(max: 60).nullable()();
+  IntColumn get durationSec => integer()();
+  RealColumn get distanceKm => real().nullable()();
+  RealColumn get calories => real().nullable()();
+  RealColumn get activeCalories => real().nullable()();
+  IntColumn get avgHr => integer().nullable()();
+  IntColumn get maxHr => integer().nullable()();
+  IntColumn get zone1Sec => integer().nullable()();
+  IntColumn get zone2Sec => integer().nullable()();
+  IntColumn get zone3Sec => integer().nullable()();
+  IntColumn get zone4Sec => integer().nullable()();
+  IntColumn get zone5Sec => integer().nullable()();
+  TextColumn get feeling => text().withLength(max: 500).nullable()();
+
+  /// Garmin 的活動編號，匯入時用來合併；手動記的是 null（可以很多筆）。
+  IntColumn get garminActivityId => integer().nullable().unique()();
+}
+
+/// 器材 / 動作清單。名稱不重複；單位在有紀錄之後就不能改（否則舊重量會被誤讀）。
+@DataClassName('ExerciseRow')
+class Exercises extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get name => text().withLength(min: 1, max: 60).unique()();
+  IntColumn get unit => intEnum<WeightUnit>()();
+}
+
+/// 肌力訓練裡的每個動作：重量（單位跟著器材）× 每組次數 × 組數。
+/// 刪掉一次運動時，它的動作跟著刪（外鍵 cascade）。
+@DataClassName('ExerciseSetRow')
+class ExerciseSets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get activityId => integer()
+      .references(Activities, #id, onDelete: KeyAction.cascade)();
+  IntColumn get exerciseId => integer().references(Exercises, #id)();
+
+  /// 在這次訓練裡的順序。
+  IntColumn get position => integer()();
+  RealColumn get weight => real().nullable()();
+  IntColumn get reps => integer().nullable()();
+  IntColumn get sets => integer().nullable()();
+}
+
+// ---------------------------------------------------------------------------
 // 資料庫本體。driftDatabase()（來自 drift_flutter）會自動處理跨平台連線：
 // 行動平台走原生 SQLite、Web 走 sqlite3 WASM + OPFS。
 // ---------------------------------------------------------------------------
-@DriftDatabase(
-    tables: [UserProfiles, MealEntries, WeightEntries, BodyCompositions])
+@DriftDatabase(tables: [
+  UserProfiles,
+  MealEntries,
+  WeightEntries,
+  BodyCompositions,
+  Activities,
+  Exercises,
+  ExerciseSets,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ??
@@ -117,7 +177,7 @@ class AppDatabase extends _$AppDatabase {
             ));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// 資料庫版本升級策略。
   ///
@@ -148,6 +208,12 @@ class AppDatabase extends _$AppDatabase {
           // v4：新增「體組成」資料表。既有資料不受影響。
           if (from < 4) {
             await m.createTable(bodyCompositions);
+          }
+          // v5：新增「運動」三張表。動作表參照另外兩張，所以最後建。
+          if (from < 5) {
+            await m.createTable(activities);
+            await m.createTable(exercises);
+            await m.createTable(exerciseSets);
           }
         },
         beforeOpen: (details) async {
