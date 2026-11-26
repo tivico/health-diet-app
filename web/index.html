@@ -17,6 +17,36 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
+
+  <!--
+    對外連線白名單（內容安全政策，Content Security Policy）。
+    瀏覽器只准這個頁面從下列來源載入檔案、或把資料送出去，其餘一律擋下——
+    就算哪天某個套件被植入惡意程式，也沒辦法把紀錄偷傳到別的網站。
+      'self'                              本站：App 本體、sqlite3.wasm、drift_worker.js、圖示
+      www.gstatic.com/flutter-canvaskit/  Google 提供的 Flutter 繪圖引擎（CanvasKit）
+      fonts.gstatic.com/s/                Google 字型（繁中字型等，Flutter 依畫面需要下載）
+      'wasm-unsafe-eval'                  允許執行 WebAssembly（繪圖引擎與 SQLite 需要）
+      'unsafe-inline'（只用在樣式）        Flutter 會在頁面上動態加入樣式
+      data: / blob:（只用在圖片）          瀏覽器內部產生的圖片，不會連到外部
+
+    ⚠️ 平常是「註解」狀態：開發模式（flutter run）會執行內嵌程式，開著白名單會白畫面。
+       正式版建置後由 tool/enable_csp.dart 拿掉 CSP-BEGIN / CSP-END 兩行標記，白名單才生效。
+    要新增來源前先讀 docs/SECURITY.md，並同步更新 test/web_csp_test.dart 的白名單。
+  -->
+  <!-- CSP-BEGIN
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com/flutter-canvaskit/;
+    connect-src 'self' https://www.gstatic.com/flutter-canvaskit/ https://fonts.gstatic.com/s/;
+    font-src 'self' https://fonts.gstatic.com/s/;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:;
+    worker-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'none'">
+  CSP-END -->
+
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="記錄餐點熱量與體重，提供個人化每日目標與正確的體態衛教。">
 

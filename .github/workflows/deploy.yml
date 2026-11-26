@@ -37,8 +37,15 @@ jobs:
 
       # Pages 掛在 /health-diet-app/ 子路徑，base-href 必須對應，
       # 否則資源（含 drift 的 sqlite3.wasm / drift_worker.js）會 404。
+      # --csp：要求編譯器不產生「執行時才動態生成程式碼」的寫法（eval 之類），
+      # 配合 web/index.html 的對外連線白名單（見 docs/SECURITY.md）。
       - name: 建置 Web 版
-        run: flutter build web --release --base-href /health-diet-app/
+        run: flutter build web --release --csp --base-href /health-diet-app/
+
+      # 白名單在 web/index.html 裡平常是註解狀態（開發模式會被它擋住），
+      # 只有正式版才打開。找不到標記時這一步會失敗，不會悄悄部署出沒有白名單的版本。
+      - name: 啟用對外連線白名單
+        run: dart run tool/enable_csp.dart
 
       # enablement: true → 若 repo 尚未啟用 Pages，會自動啟用（省去手動設定）
       - uses: actions/configure-pages@v5

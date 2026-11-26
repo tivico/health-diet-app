@@ -3,7 +3,7 @@
 [![CI](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/ci.yml)
 [![Deploy](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml/badge.svg)](https://github.com/tivico/health-diet-app/actions/workflows/deploy.yml)
 
-🔗 **線上 Demo**：<https://tivico.github.io/health-diet-app/>　｜　📄 **[部署說明](docs/DEPLOYMENT.md)**　｜　🗄️ **[資料庫指南](docs/DATABASE.md)**　｜　📋 **[待辦清單](docs/TODO.md)**
+🔗 **線上 Demo**：<https://tivico.github.io/health-diet-app/>　｜　📄 **[部署說明](docs/DEPLOYMENT.md)**　｜　🗄️ **[資料庫指南](docs/DATABASE.md)**　｜　🔒 **[資安說明](docs/SECURITY.md)**　｜　📋 **[待辦清單](docs/TODO.md)**
 > 打開就能直接試用。資料只存在**你自己的瀏覽器**（local-first），不會上傳到任何伺服器。
 
 > 拍照記錄三餐、估算熱量與營養素，依個人資料（身高 / 體重 / 體脂 / 活動量）算出
@@ -96,11 +96,12 @@
 - **估算非精準**：拍照熱量為估算值，份量由使用者調整，僅供方向性參考。
 - **非醫療建議**：本 App 不取代專業醫療或營養師診斷；衛教內含求助資源。
 - **內容可查證**：衛教文章一律附資料來源，並標明「這個來源支持文中哪個說法」；有爭議或證據未定的說法（如局部瘦身、7700 大卡換算）在文中直接說明侷限，不寫成定論。
+- **限制對外連線**：正式版用內容安全政策（CSP）只准 App 連到本站與 Google 的繪圖引擎、字型；就算哪個套件被植入惡意程式，也無法把紀錄偷傳到別的網站 → [資安說明](docs/SECURITY.md)
 
 ## 開發進度
 
 - ✅ 四大分頁（今日 / 體重 / 統計 / 衛教）皆可用；資料本地持久化、跨 Web + 行動
-- ✅ Git 版控；**136 項測試全過**（單元 + Widget 流程 + 真實 SQLite 整合測試 + 小螢幕版面測試 + 衛教來源護欄）
+- ✅ Git 版控；**145 項測試全過**（單元 + Widget 流程 + 真實 SQLite 整合測試 + 小螢幕版面測試 + 衛教來源護欄 + 對外連線白名單護欄）
 - ✅ 資料庫升級機制（drift migration）就位，並有**自動化升級測試**驗證舊資料不會遺失 → [說明](docs/DATABASE.md)
 - 🔨 下一步：拍照辨識（需 Android SDK + 實體手機）或功能深化
 
@@ -113,6 +114,8 @@ flutter analyze                                       # 靜態檢查
 dart run build_runner build                           # 改 drift schema 後重新產生程式碼（流程見 docs/DATABASE.md）
 dart run drift_dev schema dump lib/data/database.dart drift_schemas/   # 改完 schema 留一份快照
 dart run tool/generate_icon.dart                      # 重新產生各平台 App 圖示
+flutter build web --release --csp                     # 建置正式版 Web（--csp 配合對外連線白名單）
+dart run tool/enable_csp.dart                         # 啟用白名單（只在正式版；見 docs/SECURITY.md）
 ```
 
 > **Web 須知**：drift 在 Web 需要 `web/sqlite3.wasm` 與 `web/drift_worker.js`

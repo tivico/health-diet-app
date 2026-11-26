@@ -78,7 +78,7 @@ git push
 ### `--base-href` 一定要設
 
 ```yaml
-flutter build web --release --base-href /health-diet-app/
+flutter build web --release --csp --base-href /health-diet-app/
 ```
 
 因為 Pages 把網站掛在 `https://tivico.github.io/**health-diet-app**/` 這個
@@ -93,6 +93,12 @@ build 時會自動複製到 `build/web/`。少了它們，網站會開得起來�
 
 Pages 沒辦法設定 COOP/COEP 標頭，所以 drift 會自動退回 **IndexedDB** 模式
 （與本機開發時相同），資料一樣存得住。
+
+### 對外連線白名單（CSP）
+
+建置指令多了 `--csp`，建置完還要多跑一步 `dart run tool/enable_csp.dart`，
+正式版的對外連線白名單才會生效（開發模式刻意不啟用，否則 `flutter run` 會白畫面）。
+原理、能擋什麼、怎麼新增來源，見 [資安說明](SECURITY.md)。
 
 ---
 
@@ -170,7 +176,7 @@ FROM ghcr.io/cirruslabs/flutter:stable AS build
 WORKDIR /app
 COPY . .
 RUN flutter pub get
-RUN flutter build web --release
+RUN flutter build web --release --csp && dart run tool/enable_csp.dart
 
 # ---- 階段二：只留靜態檔，塞進輕量 nginx ----
 FROM nginx:alpine
@@ -209,3 +215,5 @@ docker run -p 8080:80 health-diet-app   # 開 http://localhost:8080
 | App 開得起來但資料存不了 | `sqlite3.wasm` / `drift_worker.js` 沒被打包 | 確認兩個檔案在 `web/` 且有進版控 |
 | 看到的還是舊版 | service worker 快取 | `Ctrl + F5` 強制重新整理 |
 | Deploy workflow 失敗 | 權限或 Pages 未啟用 | 看 Actions 的錯誤訊息；確認 Settings → Pages → Source |
+| 線上某個功能失效，Console 出現 `Content Security Policy` 錯誤 | 有資源不在對外連線白名單裡 | 見 [資安說明](SECURITY.md)「要新增來源時」 |
+| `flutter run` 白畫面，Console 說 inline script 被擋 | `web/index.html` 的白名單被改成生效狀態 | 恢復 `CSP-BEGIN` / `CSP-END` 標記（見 [資安說明](SECURITY.md)） |
